@@ -94,6 +94,7 @@ pub const DoctorError = errors.DoctorError;
 
 pub const Session = session_api.Session;
 pub const namespace = @import("namespace.zig");
+pub const landlock = @import("landlock.zig");
 
 pub fn launch(jail_config: JailConfig, allocator: std.mem.Allocator) LaunchError!RunOutcome {
     var session = try spawn(jail_config, allocator);
