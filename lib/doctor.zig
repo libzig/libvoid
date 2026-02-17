@@ -1,4 +1,5 @@
 const std = @import("std");
+const landlock = @import("landlock.zig");
 
 pub const KernelVersion = struct {
     major: u32,
@@ -30,6 +31,8 @@ pub const DoctorReport = struct {
     nft_available: bool,
     unpriv_userns_clone_enabled: ?bool,
     capabilities: CapabilityMatrix,
+    landlock_available: bool,
+    landlock_abi_version: ?u32,
     readiness_score: u8,
     full_isolation_ready: bool,
 
@@ -62,6 +65,11 @@ pub const DoctorReport = struct {
             self.capabilities.tmpfs,
             self.capabilities.devtmpfs,
         });
+        if (self.landlock_abi_version) |v| {
+            try writer.print("- landlock: abi v{}\n", .{v});
+        } else {
+            try writer.print("- landlock: unavailable\n", .{});
+        }
         try writer.print("- readiness score: {}/100\n", .{self.readiness_score});
         try writer.print("- full isolation ready: {}\n", .{self.full_isolation_ready});
 
@@ -76,6 +84,9 @@ pub const DoctorReport = struct {
         }
         if (!self.iptables_available and !self.nft_available) {
             try writer.print("  recommendation: install iptables or nft for bridge NAT\n", .{});
+        }
+        if (!self.landlock_available) {
+            try writer.print("  recommendation: upgrade to kernel 5.13+ for Landlock path restrictions\n", .{});
         }
     }
 
@@ -103,6 +114,12 @@ pub const DoctorReport = struct {
             self.capabilities.tmpfs,
             self.capabilities.devtmpfs,
         });
+        try writer.print(",\"landlock_available\":{}", .{self.landlock_available});
+        if (self.landlock_abi_version) |v| {
+            try writer.print(",\"landlock_abi_version\":{}", .{v});
+        } else {
+            try writer.print(",\"landlock_abi_version\":null", .{});
+        }
         try writer.print(",\"readiness_score\":{}", .{self.readiness_score});
         try writer.print(",\"full_isolation_ready\":{}", .{self.full_isolation_ready});
         try writer.print(",\"strict_ready\":{}", .{self.strictReady()});
@@ -129,6 +146,9 @@ pub fn check(allocator: std.mem.Allocator) !DoctorReport {
     const has_seccomp_filter = file_exists("/proc/sys/kernel/seccomp/actions_avail");
     const has_iptables = command_exists("iptables");
     const has_nft = command_exists("nft");
+
+    const ll_abi = landlock.probeAbi();
+    const ll_available = ll_abi != null;
 
     const full_isolation_ready = has_user and has_mount and has_pid and has_net and has_uts and has_ipc and cgroup_v2 and has_seccomp_filter and tmpfs and procfs;
     const readiness = computeReadinessScore(.{
@@ -175,6 +195,8 @@ pub fn check(allocator: std.mem.Allocator) !DoctorReport {
             .tmpfs = tmpfs,
             .devtmpfs = devtmpfs,
         },
+        .landlock_available = ll_available,
+        .landlock_abi_version = ll_abi,
         .readiness_score = readiness,
         .full_isolation_ready = full_isolation_ready,
     };

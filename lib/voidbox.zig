@@ -640,6 +640,9 @@ pub fn applyIsolationInChildSync(jail_config: JailConfig, allocator: std.mem.All
     try process_exec.finalizeNamespaces(jail_config.namespace_fds);
     try process_exec.enforceUserNsPolicy(jail_config.security, allocator);
 
+    // Apply landlock restrictions before seccomp (after all setup is complete).
+    try process_exec.applyLandlock(jail_config.security);
+
     // Apply seccomp as a final hardening step, right before returning to caller
     // for exec.
     try process_exec.applySeccomp(jail_config.security, allocator);

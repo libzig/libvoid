@@ -6,6 +6,7 @@ const c = @cImport(@cInclude("signal.h"));
 const namespace = @import("namespace.zig");
 const namespace_sequence = @import("namespace_sequence.zig");
 const caps = @import("caps.zig");
+const ll = @import("landlock.zig");
 const seccomp = @import("seccomp.zig");
 const ProcessOptions = @import("config.zig").ProcessOptions;
 const SecurityOptions = @import("config.zig").SecurityOptions;
@@ -47,6 +48,10 @@ pub fn enforceUserNsPolicy(security: SecurityOptions, allocator: std.mem.Allocat
     if (security.disable_userns or security.assert_userns_disabled) {
         try namespace.assertUserNsDisabled();
     }
+}
+
+pub fn applyLandlock(security: SecurityOptions) !void {
+    try ll.apply(security.landlock);
 }
 
 pub fn applySeccomp(security: SecurityOptions, allocator: std.mem.Allocator) !void {

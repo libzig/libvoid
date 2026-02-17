@@ -232,6 +232,7 @@ fn execCmd(self: *Container, uid: linux.uid_t, gid: linux.gid_t, setup_ready_fd:
         _ = linux.close(fd);
     }
 
+    try process_exec.applyLandlock(self.security);
     try process_exec.applySeccomp(self.security, self.allocator);
     try process_exec.exec(self.allocator, self.cmd, self.process);
 }
