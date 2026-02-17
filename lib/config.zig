@@ -192,6 +192,35 @@ pub const StatusOptions = struct {
     callback_ctx: ?*anyopaque = null,
 };
 
+pub const LandlockAccess = enum {
+    read,
+    write,
+    read_write,
+    execute,
+};
+
+pub const LandlockFsRule = struct {
+    path: []const u8,
+    access: LandlockAccess,
+};
+
+pub const LandlockNetAccess = enum {
+    bind,
+    connect,
+    bind_connect,
+};
+
+pub const LandlockNetRule = struct {
+    port: u16,
+    access: LandlockNetAccess,
+};
+
+pub const LandlockOptions = struct {
+    enabled: bool = false,
+    fs_rules: []const LandlockFsRule = &.{},
+    net_rules: []const LandlockNetRule = &.{},
+};
+
 pub const SecurityOptions = struct {
     pub const SeccompMode = enum {
         disabled,
@@ -216,6 +245,7 @@ pub const SecurityOptions = struct {
     assert_userns_disabled: bool = false,
     exec_label: ?[]const u8 = null,
     file_label: ?[]const u8 = null,
+    landlock: LandlockOptions = .{},
 };
 
 pub const JailConfig = struct {

@@ -64,6 +64,11 @@ pub const StatusNamespaceIds = config.StatusOptions.NamespaceIds;
 pub const StatusEventCallback = config.StatusOptions.EventCallback;
 pub const EnvironmentEntry = config.EnvironmentEntry;
 pub const LaunchProfile = config.LaunchProfile;
+pub const LandlockAccess = config.LandlockAccess;
+pub const LandlockFsRule = config.LandlockFsRule;
+pub const LandlockNetAccess = config.LandlockNetAccess;
+pub const LandlockNetRule = config.LandlockNetRule;
+pub const LandlockOptions = config.LandlockOptions;
 pub const FsAction = config.FsAction;
 pub const MountPair = config.MountPair;
 pub const TmpfsMount = config.TmpfsMount;
@@ -245,6 +250,18 @@ pub fn validate(jail_config: JailConfig) ValidationError!void {
     }
     if ((jail_config.security.seccomp_mode == .strict or has_filters) and !jail_config.security.no_new_privs) {
         return error.SeccompRequiresNoNewPrivs;
+    }
+
+    if (jail_config.security.landlock.enabled) {
+        if (!jail_config.security.no_new_privs) {
+            return error.LandlockRequiresNoNewPrivs;
+        }
+        for (jail_config.security.landlock.fs_rules) |rule| {
+            if (rule.path.len == 0) return error.LandlockEmptyPath;
+        }
+        for (jail_config.security.landlock.net_rules) |rule| {
+            if (rule.port == 0) return error.LandlockInvalidPort;
+        }
     }
 
     for (jail_config.fs_actions) |action| {
@@ -1160,6 +1177,88 @@ test "validate rejects duplicate overlay source keys" {
     };
 
     try std.testing.expectError(error.DuplicateOverlaySourceKey, validate(cfg));
+}
+
+test "validate rejects landlock with no_new_privs disabled" {
+    const cfg: JailConfig = .{
+        .name = "test",
+        .rootfs_path = "/tmp/rootfs",
+        .cmd = &.{"/bin/sh"},
+        .security = .{
+            .no_new_privs = false,
+            .landlock = .{
+                .enabled = true,
+                .fs_rules = &.{.{ .path = "/usr", .access = .read }},
+            },
+        },
+    };
+
+    try std.testing.expectError(error.LandlockRequiresNoNewPrivs, validate(cfg));
+}
+
+test "validate rejects landlock rule with empty path" {
+    const cfg: JailConfig = .{
+        .name = "test",
+        .rootfs_path = "/tmp/rootfs",
+        .cmd = &.{"/bin/sh"},
+        .security = .{
+            .landlock = .{
+                .enabled = true,
+                .fs_rules = &.{.{ .path = "", .access = .read }},
+            },
+        },
+    };
+
+    try std.testing.expectError(error.LandlockEmptyPath, validate(cfg));
+}
+
+test "validate rejects landlock net rule with port zero" {
+    const cfg: JailConfig = .{
+        .name = "test",
+        .rootfs_path = "/tmp/rootfs",
+        .cmd = &.{"/bin/sh"},
+        .security = .{
+            .landlock = .{
+                .enabled = true,
+                .net_rules = &.{.{ .port = 0, .access = .bind }},
+            },
+        },
+    };
+
+    try std.testing.expectError(error.LandlockInvalidPort, validate(cfg));
+}
+
+test "validate accepts valid landlock config" {
+    const cfg: JailConfig = .{
+        .name = "test",
+        .rootfs_path = "/tmp/rootfs",
+        .cmd = &.{"/bin/sh"},
+        .security = .{
+            .landlock = .{
+                .enabled = true,
+                .fs_rules = &.{
+                    .{ .path = "/usr", .access = .read },
+                    .{ .path = "/tmp", .access = .read_write },
+                },
+            },
+        },
+    };
+
+    try validate(cfg);
+}
+
+test "validate skips landlock checks when disabled" {
+    const cfg: JailConfig = .{
+        .name = "test",
+        .rootfs_path = "/tmp/rootfs",
+        .cmd = &.{"/bin/sh"},
+        .security = .{
+            .no_new_privs = false,
+            .landlock = .{ .enabled = false },
+        },
+    };
+
+    try validate(cfg);
 }
 
 test "public API compile-time surface" {

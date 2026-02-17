@@ -41,6 +41,9 @@ pub const ValidationError = error{
     InvalidHostname,
     AsPid1RequiresPidNamespace,
     SecurityLabelNotSupported,
+    LandlockEmptyPath,
+    LandlockRequiresNoNewPrivs,
+    LandlockInvalidPort,
 };
 
 pub const SpawnError = ValidationError || error{
