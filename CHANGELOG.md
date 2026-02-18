@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.0.10] - 2026-02-18
+
+### <!-- 0 -->⛰️  Features
+
+- Add Landlock CLI flags, try_ support, example, and integration tests
+- Integrate Landlock into spawn pipeline and doctor report
+- Implement Landlock LSM syscall wrappers and access mode mapping
+- Add Landlock config types, validation, and public exports
+
+### <!-- 3 -->📚 Documentation
+
+- Update Landlock LSM and hardening status
+
 ## [0.0.9] - 2026-02-17
 
 ### <!-- 0 -->⛰️  Features
