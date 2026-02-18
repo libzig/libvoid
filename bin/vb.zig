@@ -16,6 +16,7 @@ const Parsed = struct {
         allocator.free(self.cfg.security.cap_add);
         allocator.free(self.cfg.security.cap_drop);
         allocator.free(self.cfg.security.seccomp_filter_fds);
+        allocator.free(self.cfg.security.landlock.fs_rules);
         allocator.free(self.cfg.fs_actions);
 
         for (self.owned_strings) |s| {
@@ -125,6 +126,9 @@ fn parseBwrapArgs(allocator: std.mem.Allocator, raw: []const []const u8) !Parsed
 
     var cap_drop = std.ArrayList(u8).empty;
     defer cap_drop.deinit(allocator);
+
+    var landlock_rules = std.ArrayList(voidbox.LandlockFsRule).empty;
+    defer landlock_rules.deinit(allocator);
 
     var seccomp_fds = std.ArrayList(i32).empty;
     defer seccomp_fds.deinit(allocator);
@@ -480,6 +484,35 @@ fn parseBwrapArgs(allocator: std.mem.Allocator, raw: []const []const u8) !Parsed
             continue;
         }
 
+        if (std.mem.eql(u8, arg, "--landlock-read")) {
+            try landlock_rules.append(allocator, .{ .path = try nextArg(args, &i, arg), .access = .read });
+            continue;
+        }
+        if (std.mem.eql(u8, arg, "--landlock-write")) {
+            try landlock_rules.append(allocator, .{ .path = try nextArg(args, &i, arg), .access = .write });
+            continue;
+        }
+        if (std.mem.eql(u8, arg, "--landlock-rw")) {
+            try landlock_rules.append(allocator, .{ .path = try nextArg(args, &i, arg), .access = .read_write });
+            continue;
+        }
+        if (std.mem.eql(u8, arg, "--landlock-exec")) {
+            try landlock_rules.append(allocator, .{ .path = try nextArg(args, &i, arg), .access = .execute });
+            continue;
+        }
+        if (std.mem.eql(u8, arg, "--landlock-read-try")) {
+            try landlock_rules.append(allocator, .{ .path = try nextArg(args, &i, arg), .access = .read, .try_ = true });
+            continue;
+        }
+        if (std.mem.eql(u8, arg, "--landlock-write-try")) {
+            try landlock_rules.append(allocator, .{ .path = try nextArg(args, &i, arg), .access = .write, .try_ = true });
+            continue;
+        }
+        if (std.mem.eql(u8, arg, "--landlock-rw-try")) {
+            try landlock_rules.append(allocator, .{ .path = try nextArg(args, &i, arg), .access = .read_write, .try_ = true });
+            continue;
+        }
+
         if (std.mem.eql(u8, arg, "--seccomp")) {
             const fd = try parseFd(try nextArg(args, &i, arg));
             seccomp_fds.clearRetainingCapacity();
@@ -539,6 +572,11 @@ fn parseBwrapArgs(allocator: std.mem.Allocator, raw: []const []const u8) !Parsed
     errdefer allocator.free(cfg.security.cap_drop);
     cfg.security.seccomp_filter_fds = try seccomp_fds.toOwnedSlice(allocator);
     errdefer allocator.free(cfg.security.seccomp_filter_fds);
+    const ll_rules = try landlock_rules.toOwnedSlice(allocator);
+    errdefer allocator.free(ll_rules);
+    if (ll_rules.len > 0) {
+        cfg.security.landlock = .{ .enabled = true, .fs_rules = ll_rules };
+    }
     cfg.fs_actions = try fs_actions.toOwnedSlice(allocator);
     errdefer allocator.free(cfg.fs_actions);
     if (cfg.fs_actions.len > 0) cfg.isolation.mount = true;
@@ -860,7 +898,11 @@ fn printUsage() !void {
     try out.print("  {s}--seccomp{s} FD | {s}--add-seccomp-fd{s} FD\n", .{ option, reset, option, reset });
     try out.print("  {s}--cap-add{s} CAP | {s}--cap-drop{s} CAP\n", .{ option, reset, option, reset });
     try out.print("  {s}--exec-label{s} LABEL | {s}--file-label{s} LABEL\n", .{ option, reset, option, reset });
-    try out.print("  {s}--disable-userns{s} | {s}--assert-userns-disabled{s}\n\n", .{ option, reset, option, reset });
+    try out.print("  {s}--disable-userns{s} | {s}--assert-userns-disabled{s}\n", .{ option, reset, option, reset });
+    try out.print("  {s}--landlock-read{s} PATH    Landlock: allow read access\n", .{ option, reset });
+    try out.print("  {s}--landlock-write{s} PATH   Landlock: allow write access\n", .{ option, reset });
+    try out.print("  {s}--landlock-rw{s} PATH      Landlock: allow read+write access\n", .{ option, reset });
+    try out.print("  {s}--landlock-exec{s} PATH    Landlock: allow execute access\n\n", .{ option, reset });
 
     try out.print("{s}Filesystem{s}\n", .{ section, reset });
     try out.print("  {s}--perms{s} OCTAL | {s}--size{s} BYTES\n", .{ option, reset, option, reset });

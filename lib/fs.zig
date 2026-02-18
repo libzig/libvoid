@@ -17,7 +17,9 @@ pub fn init(rootfs: []const u8, instance_id: []const u8, actions: []const FsActi
 
 pub fn setup(self: *Fs, mount_fs: bool, use_pivot_root: bool) !void {
     if (!mount_fs) {
-        try mounts.enterRoot(self.rootfs, use_pivot_root);
+        if (!std.mem.eql(u8, self.rootfs, "/")) {
+            try mounts.enterRoot(self.rootfs, use_pivot_root);
+        }
         return;
     }
 

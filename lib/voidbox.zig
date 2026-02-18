@@ -2178,6 +2178,129 @@ test "integration cwd fallback lands on root when prior cwd is unavailable" {
     try std.testing.expectEqual(@as(u8, 0), outcome.exit_code);
 }
 
+test "integration landlock restricts file access" {
+    if (!integrationTestsEnabled()) return error.SkipZigTest;
+
+    // Allow read to /usr only; trying to read /etc should fail
+    const cfg: JailConfig = .{
+        .name = "itest-landlock-restrict",
+        .rootfs_path = "/",
+        .cmd = &.{ "/bin/sh", "-c", "cat /etc/hostname >/dev/null 2>&1 && exit 1 || exit 0" },
+        .isolation = .{
+            .user = false,
+            .net = false,
+            .mount = false,
+            .pid = false,
+            .uts = false,
+            .ipc = false,
+            .cgroup = false,
+        },
+        .security = .{
+            .landlock = .{
+                .enabled = true,
+                .fs_rules = &.{
+                    .{ .path = "/usr", .access = .read, .try_ = true },
+                    .{ .path = "/lib", .access = .read, .try_ = true },
+                    .{ .path = "/lib64", .access = .read, .try_ = true },
+                    .{ .path = "/bin", .access = .read, .try_ = true },
+                    .{ .path = "/dev", .access = .read_write },
+                    .{ .path = "/nix", .access = .read, .try_ = true },
+                    .{ .path = "/proc", .access = .read },
+                    .{ .path = "/run", .access = .read, .try_ = true },
+                },
+            },
+        },
+    };
+
+    const outcome = launch(cfg, std.testing.allocator) catch |err| switch (err) {
+        error.SpawnFailed => return error.SkipZigTest,
+        else => return err,
+    };
+    try std.testing.expectEqual(@as(u8, 0), outcome.exit_code);
+}
+
+test "integration landlock allows permitted access" {
+    if (!integrationTestsEnabled()) return error.SkipZigTest;
+
+    const cfg: JailConfig = .{
+        .name = "itest-landlock-allow",
+        .rootfs_path = "/",
+        .cmd = &.{ "/bin/sh", "-c", "cat /etc/hostname >/dev/null 2>&1" },
+        .isolation = .{
+            .user = false,
+            .net = false,
+            .mount = false,
+            .pid = false,
+            .uts = false,
+            .ipc = false,
+            .cgroup = false,
+        },
+        .security = .{
+            .landlock = .{
+                .enabled = true,
+                .fs_rules = &.{
+                    .{ .path = "/usr", .access = .read, .try_ = true },
+                    .{ .path = "/etc", .access = .read },
+                    .{ .path = "/lib", .access = .read, .try_ = true },
+                    .{ .path = "/lib64", .access = .read, .try_ = true },
+                    .{ .path = "/bin", .access = .read, .try_ = true },
+                    .{ .path = "/dev", .access = .read_write },
+                    .{ .path = "/nix", .access = .read, .try_ = true },
+                    .{ .path = "/proc", .access = .read },
+                    .{ .path = "/run", .access = .read, .try_ = true },
+                },
+            },
+        },
+    };
+
+    const outcome = launch(cfg, std.testing.allocator) catch |err| switch (err) {
+        error.SpawnFailed => return error.SkipZigTest,
+        else => return err,
+    };
+    try std.testing.expectEqual(@as(u8, 0), outcome.exit_code);
+}
+
+test "integration landlock blocks write to read-only path" {
+    if (!integrationTestsEnabled()) return error.SkipZigTest;
+
+    const cfg: JailConfig = .{
+        .name = "itest-landlock-ro",
+        .rootfs_path = "/",
+        .cmd = &.{ "/bin/sh", "-c", "touch /tmp/landlock-test 2>/dev/null && exit 1 || exit 0" },
+        .isolation = .{
+            .user = false,
+            .net = false,
+            .mount = false,
+            .pid = false,
+            .uts = false,
+            .ipc = false,
+            .cgroup = false,
+        },
+        .security = .{
+            .landlock = .{
+                .enabled = true,
+                .fs_rules = &.{
+                    .{ .path = "/usr", .access = .read, .try_ = true },
+                    .{ .path = "/tmp", .access = .read },
+                    .{ .path = "/lib", .access = .read, .try_ = true },
+                    .{ .path = "/lib64", .access = .read, .try_ = true },
+                    .{ .path = "/bin", .access = .read, .try_ = true },
+                    .{ .path = "/dev", .access = .read_write },
+                    .{ .path = "/nix", .access = .read, .try_ = true },
+                    .{ .path = "/proc", .access = .read },
+                    .{ .path = "/run", .access = .read, .try_ = true },
+                },
+            },
+        },
+    };
+
+    const outcome = launch(cfg, std.testing.allocator) catch |err| switch (err) {
+        error.SpawnFailed => return error.SkipZigTest,
+        else => return err,
+    };
+    try std.testing.expectEqual(@as(u8, 0), outcome.exit_code);
+}
+
 fn integrationTestsEnabled() bool {
     const value = std.process.getEnvVarOwned(std.heap.page_allocator, "VOIDBOX_RUN_INTEGRATION") catch return false;
     defer std.heap.page_allocator.free(value);

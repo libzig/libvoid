@@ -130,7 +130,10 @@ pub fn apply(options: LandlockOptions) !void {
             @ptrCast(rule.path.ptr),
             .{ .PATH = true, .DIRECTORY = true, .CLOEXEC = true },
             0,
-        ) catch return error.LandlockPathOpenFailed;
+        ) catch {
+            if (rule.try_) continue;
+            return error.LandlockPathOpenFailed;
+        };
         defer std.posix.close(path_fd);
 
         var path_attr = PathBeneathAttr{

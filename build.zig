@@ -130,9 +130,25 @@ pub fn build(b: *std.Build) !void {
 
     b.installArtifact(ex_pty);
 
+    const ex_landlock_module = b.createModule(.{
+        .root_source_file = b.path("examples/embedder_landlock.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    ex_landlock_module.addImport("voidbox", voidbox_module);
+
+    const ex_landlock = b.addExecutable(.{
+        .name = "example_embedder_landlock",
+        .root_module = ex_landlock_module,
+    });
+
+    b.installArtifact(ex_landlock);
+
     const examples_step = b.step("examples", "Compile embedder examples");
     examples_step.dependOn(&ex_shell.step);
     examples_step.dependOn(&ex_events.step);
     examples_step.dependOn(&ex_pty.step);
     examples_step.dependOn(&ex_showcase.step);
+    examples_step.dependOn(&ex_landlock.step);
 }

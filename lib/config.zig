@@ -202,6 +202,7 @@ pub const LandlockAccess = enum {
 pub const LandlockFsRule = struct {
     path: []const u8,
     access: LandlockAccess,
+    try_: bool = false,
 };
 
 pub const LandlockNetAccess = enum {

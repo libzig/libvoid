@@ -84,6 +84,7 @@ fn initNetwork(self: *Container) !void {
 }
 
 fn sethostname(self: *Container) !void {
+    if (!self.isolation.uts and self.runtime.hostname == null) return;
     const value = self.runtime.hostname orelse self.name;
     try checkErr(linux.syscall2(.sethostname, @intFromPtr(value.ptr), value.len), error.SetHostnameFailed);
 }
