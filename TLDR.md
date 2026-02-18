@@ -26,6 +26,7 @@ The library is built for embedders that need:
 - cgroup resource constraints
 - optional container-side networking setup
 - lifecycle status/event signaling
+- Landlock LSM path-based access restriction (kernel 5.13+)
 
 The CLI (`vb`) offers a bwrap-like argument surface that maps into the same
 library configuration model.
@@ -71,6 +72,20 @@ library configuration model.
 
 - `lib/cgroup.zig`
   - cgroup path entry and resource file writes
+
+### Security Subsystems
+
+- `lib/landlock.zig`
+  - Landlock LSM kernel syscall wrappers (`landlock_create_ruleset`, `landlock_add_rule`, `landlock_restrict_self`)
+  - ABI version probing (v1–v5)
+  - filesystem and network rule application
+  - `try_` support for graceful handling of missing paths
+
+- `lib/seccomp.zig`
+  - seccomp-bpf filter loading
+
+- `lib/caps.zig`
+  - capability add/drop
 
 ### CLI Adapter
 
@@ -325,7 +340,8 @@ if (pid == 0) {
 6. Network interface setup (if in network namespace)
 7. Final namespace attachments (user2 if provided)
 8. User namespace policy enforcement (`disable_userns` / assertion)
-9. Late seccomp application (immediately before caller exec)
+9. Landlock LSM restriction (if enabled)
+10. Late seccomp application (immediately before caller exec)
 
 ### What it Does NOT Do
 
@@ -352,6 +368,108 @@ See `examples/embedder_pty_isolation.zig` for a complete working example.
 | User ns mapping | Automatic | Manual (parent responsibility) |
 | PTY support | No | Yes |
 | Simplicity | Simple | Advanced |
+
+---
+
+## 9.3) Landlock LSM Support
+
+Landlock is a Linux Security Module (kernel 5.13+) that restricts filesystem
+and network access without requiring namespace isolation. This makes voidbox
+dual-function: it can **isolate** processes (namespaces) or **restrict**
+processes (Landlock) or both.
+
+### How It Works
+
+Landlock uses three kernel syscalls:
+
+1. `landlock_create_ruleset` — declare which access types the sandbox handles
+2. `landlock_add_rule` — add path/network allow rules to the ruleset
+3. `landlock_restrict_self` — enforce the ruleset on the calling process
+
+Once enforced, the process can only access paths/ports explicitly allowed.
+Everything else is denied. Rules are additive (allow-list model).
+
+### ABI Versions
+
+| Version | Kernel | Adds |
+|---------|--------|------|
+| V1 | 5.13 | Basic filesystem access (execute, write, read, readdir, etc.) |
+| V2 | 5.19 | REFER (cross-directory rename/link) |
+| V3 | 6.2 | TRUNCATE |
+| V4 | 6.4 | Network TCP (bind, connect) |
+| V5 | 6.7 | IOCTL_DEV |
+
+voidbox probes the kernel ABI at runtime and masks access flags accordingly.
+
+### Configuration
+
+```zig
+const cfg: voidbox.JailConfig = .{
+    .name = "sandboxed",
+    .rootfs_path = "/",
+    .cmd = &.{ "/bin/sh", "-c", "cat /etc/hostname" },
+    .isolation = .{ .user = false, .net = false, .mount = false,
+                    .pid = false, .uts = false, .ipc = false },
+    .security = .{
+        .landlock = .{
+            .enabled = true,
+            .fs_rules = &.{
+                .{ .path = "/usr", .access = .read },
+                .{ .path = "/etc", .access = .read },
+                .{ .path = "/bin", .access = .read },
+                .{ .path = "/lib", .access = .read, .try_ = true },
+                .{ .path = "/dev", .access = .read_write },
+            },
+        },
+    },
+};
+```
+
+### `try_` Field
+
+Set `try_: true` on a rule to silently skip it when the path doesn't exist.
+Useful for portability (e.g., `/lib64` exists on glibc systems but not NixOS).
+
+### CLI Flags
+
+```bash
+vb --landlock-read /usr --landlock-read /etc --landlock-rw /dev \
+   --landlock-read-try /lib64 -- /bin/sh -c 'cat /etc/hostname'
+```
+
+Available flags:
+
+| Flag | Access | Try variant |
+|------|--------|-------------|
+| `--landlock-read PATH` | read | `--landlock-read-try` |
+| `--landlock-write PATH` | write | `--landlock-write-try` |
+| `--landlock-rw PATH` | read+write | `--landlock-rw-try` |
+| `--landlock-exec PATH` | execute | — |
+
+Landlock is auto-enabled when any `--landlock-*` flag is present.
+
+### Pipeline Position
+
+Landlock is applied in the child process after all setup is complete and the
+parent has been signaled ready, but before seccomp:
+
+```
+prepare → sethostname → fs.setup → network → finalizeNamespaces →
+  → signal ready → applyLandlock → applySeccomp → exec
+```
+
+### Requirements
+
+- `no_new_privs` must be set (default: true) — kernel requires it
+- Kernel 5.13+ for filesystem rules, 6.4+ for network rules
+- `voidbox.check_host()` / doctor report includes landlock availability
+
+### Landlock Without Namespaces
+
+Landlock works independently of namespace isolation. When all namespace
+isolation is disabled (`user/net/mount/pid/uts/ipc = false`), voidbox skips
+`sethostname` and `enterRoot` when they would be no-ops, allowing pure
+Landlock restriction without any container setup.
 
 ---
 
@@ -498,7 +616,9 @@ For concrete snippets, use `lib/voidbox.zig` module docs and `examples/`.
 - Route parser: `lib/rtnetlink/route/get.zig`
 - Link parser: `lib/rtnetlink/link/get.zig`
 - FS actions: `lib/fs_actions.zig`
+- Landlock: `lib/landlock.zig`
 - CLI parser: `bin/vb.zig`
+- Landlock example: `examples/embedder_landlock.zig`
 
 ---
 
@@ -506,13 +626,15 @@ For concrete snippets, use `lib/voidbox.zig` module docs and `examples/`.
 
 The codebase has undergone substantial hardening in parser safety,
 resource lifecycle management, synchronization correctness, and stress
-coverage. The current system is practical and robust for Linux hosts with
+coverage. Landlock LSM support adds path-based filesystem and network
+access restriction that works independently of or alongside namespace
+isolation. The current system is practical and robust for Linux hosts with
 appropriate namespace/cgroup capabilities, with a small set of explicit
 advanced gaps remaining.
 
 ---
 
-## 21) Extended Code Cookbook (35 Patterns)
+## 21) Extended Code Cookbook (37 Patterns)
 
 ### Sample 01: Minimal launch with defaults
 
@@ -960,14 +1082,61 @@ pub fn main() !void {
 }
 ```
 
-### Sample 35: Session API usage
+### Sample 35: Landlock filesystem restriction (no namespaces)
 
 ```zig
 const std = @import("std");
 const voidbox = @import("voidbox");
 
 pub fn main() !void {
-    var cfg: voidbox.JailConfig = .{ .name = "s35", .rootfs_path = "/", .cmd = &.{ "/bin/true" } };
+    const cfg: voidbox.JailConfig = .{
+        .name = "s35", .rootfs_path = "/",
+        .cmd = &.{ "/bin/sh", "-c", "cat /etc/hostname >/dev/null 2>&1 && exit 1 || exit 0" },
+        .isolation = .{ .user = false, .net = false, .mount = false, .pid = false, .uts = false, .ipc = false },
+        .security = .{ .landlock = .{ .enabled = true, .fs_rules = &.{
+            .{ .path = "/usr", .access = .read, .try_ = true },
+            .{ .path = "/bin", .access = .read, .try_ = true },
+            .{ .path = "/lib", .access = .read, .try_ = true },
+            .{ .path = "/dev", .access = .read_write },
+            .{ .path = "/nix", .access = .read, .try_ = true },
+            .{ .path = "/proc", .access = .read },
+        } } },
+    };
+    const o = try voidbox.launch(cfg, std.heap.page_allocator);
+    std.debug.assert(o.exit_code == 0); // /etc blocked
+}
+```
+
+### Sample 36: Landlock with namespaces combined
+
+```zig
+const std = @import("std");
+const voidbox = @import("voidbox");
+
+pub fn main() !void {
+    const cfg: voidbox.JailConfig = .{
+        .name = "s36", .rootfs_path = "/",
+        .cmd = &.{ "/bin/sh", "-c", "cat /etc/hostname" },
+        .security = .{ .landlock = .{ .enabled = true, .fs_rules = &.{
+            .{ .path = "/usr", .access = .read },
+            .{ .path = "/etc", .access = .read },
+            .{ .path = "/bin", .access = .read },
+            .{ .path = "/dev", .access = .read_write },
+            .{ .path = "/proc", .access = .read },
+        } } },
+    };
+    _ = try voidbox.launch(cfg, std.heap.page_allocator);
+}
+```
+
+### Sample 37: Session API usage
+
+```zig
+const std = @import("std");
+const voidbox = @import("voidbox");
+
+pub fn main() !void {
+    var cfg: voidbox.JailConfig = .{ .name = "s37", .rootfs_path = "/", .cmd = &.{ "/bin/true" } };
     var session = try voidbox.spawn(cfg, std.heap.page_allocator);
     defer session.deinit();
     _ = try voidbox.wait(&session);
@@ -1128,6 +1297,16 @@ pub fn main() !void {
 - HC-148: keep fs helper ownership contracts explicit.
 - HC-149: prefer small pure helper functions for critical checks.
 - HC-150: keep this checklist updated whenever a hardening delta lands.
+- HC-151: validate Landlock requires no_new_privs at config validation time.
+- HC-152: reject empty Landlock rule paths during validation.
+- HC-153: reject zero-port Landlock network rules during validation.
+- HC-154: probe Landlock ABI before attempting to apply rules.
+- HC-155: mask Landlock access flags to match detected ABI version.
+- HC-156: close Landlock path file descriptors after rule addition.
+- HC-157: close Landlock ruleset file descriptor after restrict_self.
+- HC-158: support try_ field for graceful handling of missing paths.
+- HC-159: skip sethostname when UTS isolation is disabled and no hostname is set.
+- HC-160: skip enterRoot when rootfs is "/" and mount isolation is disabled.
 
 ---
 
@@ -1143,3 +1322,6 @@ pub fn main() !void {
 - DN-008: if fd stability tests fail, inspect newly added handles in setup/teardown paths.
 - DN-009: if netlink parsing fails, check header/attr length assumptions against kernel payload.
 - DN-010: if cleanup tests fail, verify absolute path handling and rootfs mapping semantics.
+- DN-011: if landlock tests fail, check kernel version (`uname -r`) — requires 5.13+ for fs, 6.4+ for network.
+- DN-012: if landlock example fails with SpawnFailed, verify paths exist on host (NixOS may lack `/lib64`, `/lib`, `/bin`; use `try_: true`).
+- DN-013: if landlock apply returns LandlockNotSupported, check `cat /proc/sys/kernel/unprivileged_userns_clone` and `vb doctor` output.

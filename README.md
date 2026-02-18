@@ -1,13 +1,14 @@
 # voidbox
 
 `voidbox` is a Linux-only Zig sandboxing library with a small CLI (`vb`) for
-running processes inside configurable namespace/cgroup/filesystem isolation.
+running processes inside configurable namespace/cgroup/filesystem/Landlock
+isolation.
 
 ## What Is In This Repo
 
 - Static library: `lib/voidbox.zig`
 - CLI: `bin/vb.zig`
-- Examples: `examples/embedder_launch_shell.zig`, `examples/embedder_events.zig`
+- Examples: `examples/embedder_launch_shell.zig`, `examples/embedder_events.zig`, `examples/embedder_landlock.zig`
 - Build graph: `build.zig`
 
 ## Requirements
@@ -76,10 +77,43 @@ See in-source docs at `lib/voidbox.zig` for embedder examples:
 - `chroot` mode is less isolated than `pivot_root` and is not considered
   bubblewrap parity behavior.
 
+## Landlock LSM Support
+
+Landlock (kernel 5.13+) restricts filesystem and network access at the kernel
+level. It works independently of namespaces, making voidbox dual-function:
+**isolate** processes (namespaces) or **restrict** processes (Landlock) or both.
+
+```bash
+# CLI: restrict a process to read /usr and /etc only
+vb --landlock-read /usr --landlock-read /etc --landlock-rw /dev -- /bin/sh
+
+# Portable rules: skip missing paths with -try variants
+vb --landlock-read /usr --landlock-read-try /lib64 -- /bin/sh
+```
+
+```zig
+// Library: Landlock without any namespace isolation
+const cfg: voidbox.JailConfig = .{
+    .name = "restricted",
+    .rootfs_path = "/",
+    .cmd = &.{ "/bin/sh" },
+    .isolation = .{ .user = false, .net = false, .mount = false,
+                    .pid = false, .uts = false, .ipc = false },
+    .security = .{ .landlock = .{ .enabled = true, .fs_rules = &.{
+        .{ .path = "/usr", .access = .read },
+        .{ .path = "/etc", .access = .read },
+        .{ .path = "/dev", .access = .read_write },
+    } } },
+};
+```
+
+See `TLDR.md` section 9.3 for full details.
+
 ## Current Hardening Status
 
 Recent work focused on:
 
+- Landlock LSM filesystem/network restriction support (kernel 5.13+, ABI v1–v5)
 - netlink parser bounds/alignment hardening and malformed-input tests
 - fd/resource lifecycle cleanup in spawn/network/fs paths
 - synchronization protocol validation between parent/child setup phases
