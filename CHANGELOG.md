@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.0.11] - 2026-02-22
+
+### <!-- 2 -->🚜 Refactor
+
+- Rename `voidbox` to `libvoid`
+
 ## [0.0.10] - 2026-02-18
 
 ### <!-- 0 -->⛰️  Features
