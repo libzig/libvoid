@@ -104,7 +104,7 @@
 - Add process and environment launch options
 - Add spawn and wait session APIs
 - Add host doctor API and command
-- Add initial voidbox library facade
+- Add initial libvoid library facade
 - Renamed project to zspace
 
 ### <!-- 1 -->🐛 Bug Fixes

@@ -37,7 +37,7 @@ pub fn setup(self: *Fs, mount_fs: bool, use_pivot_root: bool) !void {
         // Create tmpfs new root
         const newroot = try std.fmt.allocPrint(
             std.heap.page_allocator,
-            "/tmp/voidbox-newroot-{s}",
+            "/tmp/libvoid-newroot-{s}",
             .{self.instance_id},
         );
         defer std.heap.page_allocator.free(newroot);

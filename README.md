@@ -1,12 +1,12 @@
-# voidbox
+# libvoid
 
-`voidbox` is a Linux-only Zig sandboxing library with a small CLI (`vb`) for
+`libvoid` is a Linux-only Zig sandboxing library with a small CLI (`vb`) for
 running processes inside configurable namespace/cgroup/filesystem/Landlock
 isolation.
 
 ## What Is In This Repo
 
-- Static library: `lib/voidbox.zig`
+- Static library: `lib/libvoid.zig`
 - CLI: `bin/vb.zig`
 - Examples: `examples/embedder_launch_shell.zig`, `examples/embedder_events.zig`, `examples/embedder_landlock.zig`
 - Build graph: `build.zig`
@@ -24,7 +24,7 @@ If you use direnv:
 
 ```bash
 direnv allow
-direnv exec "/doc/code/voidbox" make build
+direnv exec "/doc/code/libvoid" make build
 ```
 
 Or directly:
@@ -36,13 +36,13 @@ make build
 ## Test
 
 ```bash
-direnv exec "/doc/code/voidbox" zig build test
+direnv exec "/doc/code/libvoid" zig build test
 ```
 
 Integration tests are gated by environment variable:
 
 ```bash
-VOIDBOX_RUN_INTEGRATION=1 direnv exec "/doc/code/voidbox" zig build test
+LIBVOID_RUN_INTEGRATION=1 direnv exec "/doc/code/libvoid" zig build test
 ```
 
 ## Install Library Artifact
@@ -53,26 +53,26 @@ make install
 
 This installs:
 
-- `~/.local/lib/libvoidbox.a`
+- `~/.local/lib/libvoid.a`
 
 ## CLI Quick Use
 
 ```bash
-direnv exec "/doc/code/voidbox" zig build vb
+direnv exec "/doc/code/libvoid" zig build vb
 ./zig-out/bin/vb -- /bin/sh -c 'echo hello'
 ```
 
 ## Library Quick Use
 
-See in-source docs at `lib/voidbox.zig` for embedder examples:
+See in-source docs at `lib/libvoid.zig` for embedder examples:
 
 - launch shell config
 - event callback wiring
 
 ## Rootfs Mode Note (Parity)
 
-- Bubblewrap-style behavior in voidbox uses `pivot_root` (default).
-- `chroot` remains available only as an explicit voidbox extension via
+- Bubblewrap-style behavior in libvoid uses `pivot_root` (default).
+- `chroot` remains available only as an explicit libvoid extension via
   `.runtime.use_pivot_root = false`.
 - `chroot` mode is less isolated than `pivot_root` and is not considered
   bubblewrap parity behavior.
@@ -80,7 +80,7 @@ See in-source docs at `lib/voidbox.zig` for embedder examples:
 ## Landlock LSM Support
 
 Landlock (kernel 5.13+) restricts filesystem and network access at the kernel
-level. It works independently of namespaces, making voidbox dual-function:
+level. It works independently of namespaces, making libvoid dual-function:
 **isolate** processes (namespaces) or **restrict** processes (Landlock) or both.
 
 ```bash
@@ -93,7 +93,7 @@ vb --landlock-read /usr --landlock-read-try /lib64 -- /bin/sh
 
 ```zig
 // Library: Landlock without any namespace isolation
-const cfg: voidbox.JailConfig = .{
+const cfg: libvoid.JailConfig = .{
     .name = "restricted",
     .rootfs_path = "/",
     .cmd = &.{ "/bin/sh" },

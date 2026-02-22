@@ -1,5 +1,5 @@
 const std = @import("std");
-const voidbox = @import("voidbox");
+const libvoid = @import("libvoid");
 const linux = std.os.linux;
 const posix = std.posix;
 
@@ -17,10 +17,10 @@ pub fn main() !void {
     });
 }
 
-fn runTest(allocator: std.mem.Allocator, label: []const u8, iso: voidbox.IsolationOptions) !void {
+fn runTest(allocator: std.mem.Allocator, label: []const u8, iso: libvoid.IsolationOptions) !void {
     std.debug.print("\n{s}...\n", .{label});
 
-    const config = voidbox.JailConfig{
+    const config = libvoid.JailConfig{
         .name = "pty-sandbox",
         .rootfs_path = "/",
         .cmd = &.{"/bin/sh"},
@@ -45,7 +45,7 @@ fn runTest(allocator: std.mem.Allocator, label: []const u8, iso: voidbox.Isolati
         } else &.{},
     };
 
-    try voidbox.validate(config);
+    try libvoid.validate(config);
 
     const sync_pipe = try posix.pipe();
     const done_pipe = try posix.pipe();
@@ -56,12 +56,12 @@ fn runTest(allocator: std.mem.Allocator, label: []const u8, iso: voidbox.Isolati
         posix.close(sync_pipe[0]);
         posix.close(done_pipe[1]);
 
-        const sync = voidbox.UsernsSync{
+        const sync = libvoid.UsernsSync{
             .ready_fd = sync_pipe[1],
             .done_fd = done_pipe[0],
         };
 
-        voidbox.applyIsolationInChildSync(config, allocator, sync) catch |err| {
+        libvoid.applyIsolationInChildSync(config, allocator, sync) catch |err| {
             writeLog("{s} FAILED: {}\n", .{ label, err });
             posix.exit(1);
         };
@@ -87,7 +87,7 @@ fn runTest(allocator: std.mem.Allocator, label: []const u8, iso: voidbox.Isolati
     _ = posix.read(sync_pipe[0], &buf) catch {};
     posix.close(sync_pipe[0]);
 
-    voidbox.namespace.writeUserRootMappings(allocator, pid) catch |err| {
+    libvoid.namespace.writeUserRootMappings(allocator, pid) catch |err| {
         std.debug.print("  writeUserRootMappings failed: {}\n", .{err});
         posix.exit(1);
     };
@@ -112,8 +112,8 @@ fn runTest(allocator: std.mem.Allocator, label: []const u8, iso: voidbox.Isolati
 }
 
 fn writeLog(comptime fmt: []const u8, args: anytype) void {
-    const f = std.fs.openFileAbsolute("/tmp/voidbox-test.log", .{ .mode = .write_only }) catch
-        std.fs.createFileAbsolute("/tmp/voidbox-test.log", .{}) catch return;
+    const f = std.fs.openFileAbsolute("/tmp/libvoid-test.log", .{ .mode = .write_only }) catch
+        std.fs.createFileAbsolute("/tmp/libvoid-test.log", .{}) catch return;
     defer f.close();
     f.seekFromEnd(0) catch {};
     var buf: [512]u8 = undefined;

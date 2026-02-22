@@ -41,7 +41,7 @@ pub const DoctorReport = struct {
     }
 
     pub fn print(self: DoctorReport, writer: anytype) !void {
-        try writer.print("voidbox doctor\n", .{});
+        try writer.print("libvoid doctor\n", .{});
         try writer.print("- linux: {}\n", .{self.is_linux});
         if (self.kernel_version) |v| {
             try writer.print("- kernel: {}.{}.{}\n", .{ v.major, v.minor, v.patch });

@@ -54,13 +54,13 @@ fn applyResourceLimits(self: *Cgroup) !void {
 }
 
 fn initDirs(self: *Cgroup) !void {
-    const path = try std.mem.concat(self.allocator, u8, &.{ utils.CGROUP_PATH ++ "voidbox/", self.cid });
+    const path = try std.mem.concat(self.allocator, u8, &.{ utils.CGROUP_PATH ++ "libvoid/", self.cid });
     defer self.allocator.free(path);
     _ = try utils.createDirIfNotExists(path);
 }
 
 pub fn setResourceMax(self: *Cgroup, resource: Resource, limit: []const u8) !void {
-    const path = try std.mem.concat(self.allocator, u8, &.{ utils.CGROUP_PATH, "voidbox/", self.cid, "/", resource.max() });
+    const path = try std.mem.concat(self.allocator, u8, &.{ utils.CGROUP_PATH, "libvoid/", self.cid, "/", resource.max() });
     defer self.allocator.free(path);
     var file = try std.fs.openFileAbsolute(path, .{ .mode = .read_write });
     defer file.close();
@@ -70,7 +70,7 @@ pub fn setResourceMax(self: *Cgroup, resource: Resource, limit: []const u8) !voi
 pub fn enterCgroup(self: *Cgroup, pid: linux.pid_t) !void {
     if (!self.enabled) return;
 
-    const cgroup_path = try std.mem.concat(self.allocator, u8, &.{ utils.CGROUP_PATH, "voidbox/", self.cid, "/cgroup.procs" });
+    const cgroup_path = try std.mem.concat(self.allocator, u8, &.{ utils.CGROUP_PATH, "libvoid/", self.cid, "/cgroup.procs" });
     defer self.allocator.free(cgroup_path);
     const file = try std.fs.openFileAbsolute(cgroup_path, .{ .mode = .write_only });
     defer file.close();
@@ -82,7 +82,7 @@ pub fn enterCgroup(self: *Cgroup, pid: linux.pid_t) !void {
 pub fn deinit(self: *Cgroup) !void {
     if (!self.enabled) return;
 
-    const path = try std.mem.concat(self.allocator, u8, &.{ utils.CGROUP_PATH ++ "voidbox/", self.cid });
+    const path = try std.mem.concat(self.allocator, u8, &.{ utils.CGROUP_PATH ++ "libvoid/", self.cid });
     defer self.allocator.free(path);
     try std.fs.deleteDirAbsolute(path);
 }

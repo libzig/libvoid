@@ -128,7 +128,7 @@ fn openOrCreateAndLockFile(path: []const u8) !std.fs.File {
 }
 
 fn lockPathForTest(allocator: std.mem.Allocator) ![]u8 {
-    return std.fmt.allocPrint(allocator, "/tmp/voidbox-session-lock-test-{}", .{std.time.nanoTimestamp()});
+    return std.fmt.allocPrint(allocator, "/tmp/libvoid-session-lock-test-{}", .{std.time.nanoTimestamp()});
 }
 
 test "signalFd writes supervisor sync byte" {

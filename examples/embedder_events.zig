@@ -1,12 +1,12 @@
 const std = @import("std");
-const voidbox = @import("voidbox");
+const libvoid = @import("libvoid");
 
 const EventState = struct {
     spawned: usize = 0,
     exited: usize = 0,
 };
 
-fn onEvent(ctx: ?*anyopaque, event: voidbox.StatusEvent) !void {
+fn onEvent(ctx: ?*anyopaque, event: libvoid.StatusEvent) !void {
     const state: *EventState = @ptrCast(@alignCast(ctx.?));
     switch (event.kind) {
         .runtime_init_warnings => {},
@@ -20,7 +20,7 @@ pub fn main() !void {
     const allocator = std.heap.page_allocator;
 
     var state = EventState{};
-    const cfg: voidbox.JailConfig = .{
+    const cfg: libvoid.JailConfig = .{
         .name = "example-events",
         .rootfs_path = "/",
         .cmd = &.{ "/bin/sh", "-c", "exit 0" },
@@ -38,6 +38,6 @@ pub fn main() !void {
         },
     };
 
-    _ = try voidbox.launch(cfg, allocator);
+    _ = try libvoid.launch(cfg, allocator);
     if (state.spawned == 0 or state.exited == 0) return error.MissingLifecycleEvents;
 }

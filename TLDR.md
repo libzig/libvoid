@@ -17,7 +17,7 @@ It covers:
 
 ## 1) Project Intent
 
-`voidbox` provides a Linux-focused process isolation toolkit in Zig.
+`libvoid` provides a Linux-focused process isolation toolkit in Zig.
 
 The library is built for embedders that need:
 
@@ -37,7 +37,7 @@ library configuration model.
 
 ### Public API
 
-- `lib/voidbox.zig`
+- `lib/libvoid.zig`
   - re-exports key config and runtime types
   - entry points: `launch`, `spawn`, `wait`, `launch_shell`, `check_host`
 
@@ -233,12 +233,12 @@ Hardening highlights:
 
 ## 9.1) Root Filesystem Isolation: chroot vs pivot_root
 
-voidbox supports two mechanisms for changing the root filesystem:
+libvoid supports two mechanisms for changing the root filesystem:
 
 Parity note:
 
 - Bubblewrap-style semantics correspond to `pivot_root` flow.
-- `chroot` is intentionally kept as a voidbox-only extension mode.
+- `chroot` is intentionally kept as a libvoid-only extension mode.
 - Treat `chroot` as a compatibility/debug tool, not as parity behavior.
 
 ### pivot_root (Default, Recommended)
@@ -312,8 +312,8 @@ if (pid == 0) {
     // Child: setup PTY or other custom pre-isolation setup
     try myCustomSetup();
 
-    // Apply voidbox isolation in already-forked child
-    try voidbox.applyIsolationInChild(config, allocator);
+    // Apply libvoid isolation in already-forked child
+    try libvoid.applyIsolationInChild(config, allocator);
 
     // Exec command
     try std.posix.execveZ(...);
@@ -363,8 +363,8 @@ See `examples/embedder_pty_isolation.zig` for a complete working example.
 
 | Aspect | `launch()`/`spawn()` | `applyIsolationInChild()` |
 |--------|---------------------|---------------------------|
-| Fork control | voidbox forks | Caller forks |
-| Exec control | voidbox execs | Caller execs |
+| Fork control | libvoid forks | Caller forks |
+| Exec control | libvoid execs | Caller execs |
 | User ns mapping | Automatic | Manual (parent responsibility) |
 | PTY support | No | Yes |
 | Simplicity | Simple | Advanced |
@@ -374,7 +374,7 @@ See `examples/embedder_pty_isolation.zig` for a complete working example.
 ## 9.3) Landlock LSM Support
 
 Landlock is a Linux Security Module (kernel 5.13+) that restricts filesystem
-and network access without requiring namespace isolation. This makes voidbox
+and network access without requiring namespace isolation. This makes libvoid
 dual-function: it can **isolate** processes (namespaces) or **restrict**
 processes (Landlock) or both.
 
@@ -399,12 +399,12 @@ Everything else is denied. Rules are additive (allow-list model).
 | V4 | 6.4 | Network TCP (bind, connect) |
 | V5 | 6.7 | IOCTL_DEV |
 
-voidbox probes the kernel ABI at runtime and masks access flags accordingly.
+libvoid probes the kernel ABI at runtime and masks access flags accordingly.
 
 ### Configuration
 
 ```zig
-const cfg: voidbox.JailConfig = .{
+const cfg: libvoid.JailConfig = .{
     .name = "sandboxed",
     .rootfs_path = "/",
     .cmd = &.{ "/bin/sh", "-c", "cat /etc/hostname" },
@@ -462,12 +462,12 @@ prepare → sethostname → fs.setup → network → finalizeNamespaces →
 
 - `no_new_privs` must be set (default: true) — kernel requires it
 - Kernel 5.13+ for filesystem rules, 6.4+ for network rules
-- `voidbox.check_host()` / doctor report includes landlock availability
+- `libvoid.check_host()` / doctor report includes landlock availability
 
 ### Landlock Without Namespaces
 
 Landlock works independently of namespace isolation. When all namespace
-isolation is disabled (`user/net/mount/pid/uts/ipc = false`), voidbox skips
+isolation is disabled (`user/net/mount/pid/uts/ipc = false`), libvoid skips
 `sethostname` and `enterRoot` when they would be no-ops, allowing pure
 Landlock restriction without any container setup.
 
@@ -511,7 +511,7 @@ Testing layers:
 - regression tests for malformed netlink frames/attrs
 - lifecycle tests for session semantics
 - stress tests (sequential and parallel launch matrices)
-- integration tests gated by `VOIDBOX_RUN_INTEGRATION`
+- integration tests gated by `LIBVOID_RUN_INTEGRATION`
 
 Additional stability checks include fd-count regression tests for repeated
 init/deinit cycles in selected subsystems.
@@ -524,14 +524,14 @@ Recommended in this repo:
 
 ```bash
 direnv allow
-direnv exec "/doc/code/voidbox" zig build test
-direnv exec "/doc/code/voidbox" make build
+direnv exec "/doc/code/libvoid" zig build test
+direnv exec "/doc/code/libvoid" make build
 ```
 
 Integration-enabled test run:
 
 ```bash
-VOIDBOX_RUN_INTEGRATION=1 direnv exec "/doc/code/voidbox" zig build test
+LIBVOID_RUN_INTEGRATION=1 direnv exec "/doc/code/libvoid" zig build test
 ```
 
 ---
@@ -588,7 +588,7 @@ zig build vb
 Run CLI example:
 
 ```bash
-./zig-out/bin/vb -- /bin/sh -c 'echo hello from voidbox'
+./zig-out/bin/vb -- /bin/sh -c 'echo hello from libvoid'
 ```
 
 ---
@@ -602,13 +602,13 @@ Pseudo-usage pattern:
 3. launch
 4. inspect exit code
 
-For concrete snippets, use `lib/voidbox.zig` module docs and `examples/`.
+For concrete snippets, use `lib/libvoid.zig` module docs and `examples/`.
 
 ---
 
 ## 19) File Pointers
 
-- API: `lib/voidbox.zig`
+- API: `lib/libvoid.zig`
 - Session: `lib/session.zig`
 - Container spawn/PID1: `lib/container.zig`
 - Network: `lib/network.zig`
@@ -640,11 +640,11 @@ advanced gaps remaining.
 
 ```zig
 const std = @import("std");
-const voidbox = @import("voidbox");
+const libvoid = @import("libvoid");
 
 pub fn main() !void {
-    const cfg: voidbox.JailConfig = .{ .name = "s01", .rootfs_path = "/", .cmd = &.{ "/bin/true" } };
-    _ = try voidbox.launch(cfg, std.heap.page_allocator);
+    const cfg: libvoid.JailConfig = .{ .name = "s01", .rootfs_path = "/", .cmd = &.{ "/bin/true" } };
+    _ = try libvoid.launch(cfg, std.heap.page_allocator);
 }
 ```
 
@@ -652,13 +652,13 @@ pub fn main() !void {
 
 ```zig
 const std = @import("std");
-const voidbox = @import("voidbox");
+const libvoid = @import("libvoid");
 
 pub fn main() !void {
-    var cfg = voidbox.default_shell_config("/");
+    var cfg = libvoid.default_shell_config("/");
     cfg.name = "s02";
     cfg.shell_args = &.{ "-c", "echo hi" };
-    _ = try voidbox.launch_shell(cfg, std.heap.page_allocator);
+    _ = try libvoid.launch_shell(cfg, std.heap.page_allocator);
 }
 ```
 
@@ -666,15 +666,15 @@ pub fn main() !void {
 
 ```zig
 const std = @import("std");
-const voidbox = @import("voidbox");
+const libvoid = @import("libvoid");
 
-fn onEvent(_: ?*anyopaque, ev: voidbox.StatusEvent) !void {
+fn onEvent(_: ?*anyopaque, ev: libvoid.StatusEvent) !void {
     std.debug.print("kind={any}\n", .{ev.kind});
 }
 
 pub fn main() !void {
-    const cfg: voidbox.JailConfig = .{ .name = "s03", .rootfs_path = "/", .cmd = &.{ "/bin/true" }, .status = .{ .on_event = onEvent } };
-    _ = try voidbox.launch(cfg, std.heap.page_allocator);
+    const cfg: libvoid.JailConfig = .{ .name = "s03", .rootfs_path = "/", .cmd = &.{ "/bin/true" }, .status = .{ .on_event = onEvent } };
+    _ = try libvoid.launch(cfg, std.heap.page_allocator);
 }
 ```
 
@@ -682,14 +682,14 @@ pub fn main() !void {
 
 ```zig
 const std = @import("std");
-const voidbox = @import("voidbox");
+const libvoid = @import("libvoid");
 
 pub fn main() !void {
-    const cfg: voidbox.JailConfig = .{
+    const cfg: libvoid.JailConfig = .{
         .name = "s04", .rootfs_path = "/", .cmd = &.{ "/bin/pwd" },
         .process = .{ .chdir = "/tmp" },
     };
-    _ = try voidbox.launch(cfg, std.heap.page_allocator);
+    _ = try libvoid.launch(cfg, std.heap.page_allocator);
 }
 ```
 
@@ -697,12 +697,12 @@ pub fn main() !void {
 
 ```zig
 const std = @import("std");
-const voidbox = @import("voidbox");
+const libvoid = @import("libvoid");
 
 pub fn main() !void {
-    const env = [_]voidbox.EnvironmentEntry{.{ .key = "HELLO", .value = "WORLD" }};
-    const cfg: voidbox.JailConfig = .{ .name = "s05", .rootfs_path = "/", .cmd = &.{ "/usr/bin/env" }, .process = .{ .clear_env = true, .set_env = &env } };
-    _ = try voidbox.launch(cfg, std.heap.page_allocator);
+    const env = [_]libvoid.EnvironmentEntry{.{ .key = "HELLO", .value = "WORLD" }};
+    const cfg: libvoid.JailConfig = .{ .name = "s05", .rootfs_path = "/", .cmd = &.{ "/usr/bin/env" }, .process = .{ .clear_env = true, .set_env = &env } };
+    _ = try libvoid.launch(cfg, std.heap.page_allocator);
 }
 ```
 
@@ -710,12 +710,12 @@ pub fn main() !void {
 
 ```zig
 const std = @import("std");
-const voidbox = @import("voidbox");
+const libvoid = @import("libvoid");
 
 pub fn main() !void {
     const unset = [_][]const u8{"PATH", "HOME"};
-    const cfg: voidbox.JailConfig = .{ .name = "s06", .rootfs_path = "/", .cmd = &.{ "/usr/bin/env" }, .process = .{ .unset_env = &unset } };
-    _ = try voidbox.launch(cfg, std.heap.page_allocator);
+    const cfg: libvoid.JailConfig = .{ .name = "s06", .rootfs_path = "/", .cmd = &.{ "/usr/bin/env" }, .process = .{ .unset_env = &unset } };
+    _ = try libvoid.launch(cfg, std.heap.page_allocator);
 }
 ```
 
@@ -723,14 +723,14 @@ pub fn main() !void {
 
 ```zig
 const std = @import("std");
-const voidbox = @import("voidbox");
+const libvoid = @import("libvoid");
 
 pub fn main() !void {
-    const cfg: voidbox.JailConfig = .{
+    const cfg: libvoid.JailConfig = .{
         .name = "s07", .rootfs_path = "/", .cmd = &.{ "/bin/true" },
         .isolation = .{ .pid = true, .net = false, .user = false, .mount = false, .uts = false, .ipc = false, .cgroup = false },
     };
-    _ = try voidbox.launch(cfg, std.heap.page_allocator);
+    _ = try libvoid.launch(cfg, std.heap.page_allocator);
 }
 ```
 
@@ -738,11 +738,11 @@ pub fn main() !void {
 
 ```zig
 const std = @import("std");
-const voidbox = @import("voidbox");
+const libvoid = @import("libvoid");
 
 pub fn main() !void {
-    const cfg: voidbox.JailConfig = .{ .name = "s08", .rootfs_path = "/", .cmd = &.{ "/bin/hostname" }, .isolation = .{ .uts = true }, .runtime = .{ .hostname = "voidbox-demo" } };
-    _ = try voidbox.launch(cfg, std.heap.page_allocator);
+    const cfg: libvoid.JailConfig = .{ .name = "s08", .rootfs_path = "/", .cmd = &.{ "/bin/hostname" }, .isolation = .{ .uts = true }, .runtime = .{ .hostname = "libvoid-demo" } };
+    _ = try libvoid.launch(cfg, std.heap.page_allocator);
 }
 ```
 
@@ -750,11 +750,11 @@ pub fn main() !void {
 
 ```zig
 const std = @import("std");
-const voidbox = @import("voidbox");
+const libvoid = @import("libvoid");
 
 pub fn main() !void {
-    const cfg: voidbox.JailConfig = .{ .name = "s09", .rootfs_path = "/", .cmd = &.{ "/bin/true" }, .isolation = .{ .mount = true } };
-    _ = try voidbox.launch(cfg, std.heap.page_allocator);
+    const cfg: libvoid.JailConfig = .{ .name = "s09", .rootfs_path = "/", .cmd = &.{ "/bin/true" }, .isolation = .{ .mount = true } };
+    _ = try libvoid.launch(cfg, std.heap.page_allocator);
 }
 ```
 
@@ -762,11 +762,11 @@ pub fn main() !void {
 
 ```zig
 const std = @import("std");
-const voidbox = @import("voidbox");
+const libvoid = @import("libvoid");
 
 pub fn main() !void {
-    const cfg: voidbox.JailConfig = .{ .name = "s10", .rootfs_path = "/", .cmd = &.{ "/bin/true" }, .status = .{ .lock_file_path = "/tmp/voidbox.lock" } };
-    _ = try voidbox.launch(cfg, std.heap.page_allocator);
+    const cfg: libvoid.JailConfig = .{ .name = "s10", .rootfs_path = "/", .cmd = &.{ "/bin/true" }, .status = .{ .lock_file_path = "/tmp/libvoid.lock" } };
+    _ = try libvoid.launch(cfg, std.heap.page_allocator);
 }
 ```
 
@@ -774,12 +774,12 @@ pub fn main() !void {
 
 ```zig
 const std = @import("std");
-const voidbox = @import("voidbox");
+const libvoid = @import("libvoid");
 
 pub fn main() !void {
-    const actions = [_]voidbox.FsAction{.{ .bind = .{ .src = "/usr", .dest = "/mnt/usr" } }};
-    const cfg: voidbox.JailConfig = .{ .name = "s11", .rootfs_path = "/", .cmd = &.{ "/bin/true" }, .fs_actions = &actions };
-    _ = try voidbox.launch(cfg, std.heap.page_allocator);
+    const actions = [_]libvoid.FsAction{.{ .bind = .{ .src = "/usr", .dest = "/mnt/usr" } }};
+    const cfg: libvoid.JailConfig = .{ .name = "s11", .rootfs_path = "/", .cmd = &.{ "/bin/true" }, .fs_actions = &actions };
+    _ = try libvoid.launch(cfg, std.heap.page_allocator);
 }
 ```
 
@@ -787,12 +787,12 @@ pub fn main() !void {
 
 ```zig
 const std = @import("std");
-const voidbox = @import("voidbox");
+const libvoid = @import("libvoid");
 
 pub fn main() !void {
-    const actions = [_]voidbox.FsAction{.{ .ro_bind = .{ .src = "/etc", .dest = "/mnt/etc" } }};
-    const cfg: voidbox.JailConfig = .{ .name = "s12", .rootfs_path = "/", .cmd = &.{ "/bin/true" }, .fs_actions = &actions };
-    _ = try voidbox.launch(cfg, std.heap.page_allocator);
+    const actions = [_]libvoid.FsAction{.{ .ro_bind = .{ .src = "/etc", .dest = "/mnt/etc" } }};
+    const cfg: libvoid.JailConfig = .{ .name = "s12", .rootfs_path = "/", .cmd = &.{ "/bin/true" }, .fs_actions = &actions };
+    _ = try libvoid.launch(cfg, std.heap.page_allocator);
 }
 ```
 
@@ -800,12 +800,12 @@ pub fn main() !void {
 
 ```zig
 const std = @import("std");
-const voidbox = @import("voidbox");
+const libvoid = @import("libvoid");
 
 pub fn main() !void {
-    const actions = [_]voidbox.FsAction{.{ .tmpfs = .{ .dest = "/tmp/sandbox", .size_bytes = 1 << 20, .mode = 0o700 } }};
-    const cfg: voidbox.JailConfig = .{ .name = "s13", .rootfs_path = "/", .cmd = &.{ "/bin/true" }, .fs_actions = &actions };
-    _ = try voidbox.launch(cfg, std.heap.page_allocator);
+    const actions = [_]libvoid.FsAction{.{ .tmpfs = .{ .dest = "/tmp/sandbox", .size_bytes = 1 << 20, .mode = 0o700 } }};
+    const cfg: libvoid.JailConfig = .{ .name = "s13", .rootfs_path = "/", .cmd = &.{ "/bin/true" }, .fs_actions = &actions };
+    _ = try libvoid.launch(cfg, std.heap.page_allocator);
 }
 ```
 
@@ -813,15 +813,15 @@ pub fn main() !void {
 
 ```zig
 const std = @import("std");
-const voidbox = @import("voidbox");
+const libvoid = @import("libvoid");
 
 pub fn main() !void {
-    const actions = [_]voidbox.FsAction{
+    const actions = [_]libvoid.FsAction{
         .{ .overlay_src = .{ .key = "base", .path = "/lower" } },
         .{ .overlay = .{ .source_key = "base", .upper = "/upper", .work = "/work", .dest = "/merged" } },
     };
-    const cfg: voidbox.JailConfig = .{ .name = "s14", .rootfs_path = "/", .cmd = &.{ "/bin/true" }, .fs_actions = &actions };
-    _ = try voidbox.launch(cfg, std.heap.page_allocator);
+    const cfg: libvoid.JailConfig = .{ .name = "s14", .rootfs_path = "/", .cmd = &.{ "/bin/true" }, .fs_actions = &actions };
+    _ = try libvoid.launch(cfg, std.heap.page_allocator);
 }
 ```
 
@@ -829,15 +829,15 @@ pub fn main() !void {
 
 ```zig
 const std = @import("std");
-const voidbox = @import("voidbox");
+const libvoid = @import("libvoid");
 
 pub fn main() !void {
-    const actions = [_]voidbox.FsAction{
+    const actions = [_]libvoid.FsAction{
         .{ .overlay_src = .{ .key = "base", .path = "/lower" } },
         .{ .tmp_overlay = .{ .source_key = "base", .dest = "/merged" } },
     };
-    const cfg: voidbox.JailConfig = .{ .name = "s15", .rootfs_path = "/", .cmd = &.{ "/bin/true" }, .fs_actions = &actions };
-    _ = try voidbox.launch(cfg, std.heap.page_allocator);
+    const cfg: libvoid.JailConfig = .{ .name = "s15", .rootfs_path = "/", .cmd = &.{ "/bin/true" }, .fs_actions = &actions };
+    _ = try libvoid.launch(cfg, std.heap.page_allocator);
 }
 ```
 
@@ -845,12 +845,12 @@ pub fn main() !void {
 
 ```zig
 const std = @import("std");
-const voidbox = @import("voidbox");
+const libvoid = @import("libvoid");
 
 pub fn main() !void {
-    const actions = [_]voidbox.FsAction{.{ .bind_data = .{ .data = "abc", .dest = "/tmp/file" } }};
-    const cfg: voidbox.JailConfig = .{ .name = "s16", .rootfs_path = "/", .cmd = &.{ "/bin/true" }, .fs_actions = &actions };
-    _ = try voidbox.launch(cfg, std.heap.page_allocator);
+    const actions = [_]libvoid.FsAction{.{ .bind_data = .{ .data = "abc", .dest = "/tmp/file" } }};
+    const cfg: libvoid.JailConfig = .{ .name = "s16", .rootfs_path = "/", .cmd = &.{ "/bin/true" }, .fs_actions = &actions };
+    _ = try libvoid.launch(cfg, std.heap.page_allocator);
 }
 ```
 
@@ -858,12 +858,12 @@ pub fn main() !void {
 
 ```zig
 const std = @import("std");
-const voidbox = @import("voidbox");
+const libvoid = @import("libvoid");
 
 pub fn main() !void {
-    const actions = [_]voidbox.FsAction{.{ .ro_bind_data = .{ .data = "abc", .dest = "/tmp/file" } }};
-    const cfg: voidbox.JailConfig = .{ .name = "s17", .rootfs_path = "/", .cmd = &.{ "/bin/true" }, .fs_actions = &actions };
-    _ = try voidbox.launch(cfg, std.heap.page_allocator);
+    const actions = [_]libvoid.FsAction{.{ .ro_bind_data = .{ .data = "abc", .dest = "/tmp/file" } }};
+    const cfg: libvoid.JailConfig = .{ .name = "s17", .rootfs_path = "/", .cmd = &.{ "/bin/true" }, .fs_actions = &actions };
+    _ = try libvoid.launch(cfg, std.heap.page_allocator);
 }
 ```
 
@@ -871,12 +871,12 @@ pub fn main() !void {
 
 ```zig
 const std = @import("std");
-const voidbox = @import("voidbox");
+const libvoid = @import("libvoid");
 
 pub fn main() !void {
-    const actions = [_]voidbox.FsAction{.{ .file = .{ .path = "/tmp/hello.txt", .data = "hello" } }};
-    const cfg: voidbox.JailConfig = .{ .name = "s18", .rootfs_path = "/", .cmd = &.{ "/bin/true" }, .fs_actions = &actions };
-    _ = try voidbox.launch(cfg, std.heap.page_allocator);
+    const actions = [_]libvoid.FsAction{.{ .file = .{ .path = "/tmp/hello.txt", .data = "hello" } }};
+    const cfg: libvoid.JailConfig = .{ .name = "s18", .rootfs_path = "/", .cmd = &.{ "/bin/true" }, .fs_actions = &actions };
+    _ = try libvoid.launch(cfg, std.heap.page_allocator);
 }
 ```
 
@@ -884,12 +884,12 @@ pub fn main() !void {
 
 ```zig
 const std = @import("std");
-const voidbox = @import("voidbox");
+const libvoid = @import("libvoid");
 
 pub fn main() !void {
-    const actions = [_]voidbox.FsAction{.{ .symlink = .{ .target = "/bin/sh", .path = "/tmp/sh" } }};
-    const cfg: voidbox.JailConfig = .{ .name = "s19", .rootfs_path = "/", .cmd = &.{ "/bin/true" }, .fs_actions = &actions };
-    _ = try voidbox.launch(cfg, std.heap.page_allocator);
+    const actions = [_]libvoid.FsAction{.{ .symlink = .{ .target = "/bin/sh", .path = "/tmp/sh" } }};
+    const cfg: libvoid.JailConfig = .{ .name = "s19", .rootfs_path = "/", .cmd = &.{ "/bin/true" }, .fs_actions = &actions };
+    _ = try libvoid.launch(cfg, std.heap.page_allocator);
 }
 ```
 
@@ -897,12 +897,12 @@ pub fn main() !void {
 
 ```zig
 const std = @import("std");
-const voidbox = @import("voidbox");
+const libvoid = @import("libvoid");
 
 pub fn main() !void {
-    const actions = [_]voidbox.FsAction{.{ .chmod = .{ .path = "/tmp/x", .mode = 0o700 } }};
-    const cfg: voidbox.JailConfig = .{ .name = "s20", .rootfs_path = "/", .cmd = &.{ "/bin/true" }, .fs_actions = &actions };
-    _ = try voidbox.launch(cfg, std.heap.page_allocator);
+    const actions = [_]libvoid.FsAction{.{ .chmod = .{ .path = "/tmp/x", .mode = 0o700 } }};
+    const cfg: libvoid.JailConfig = .{ .name = "s20", .rootfs_path = "/", .cmd = &.{ "/bin/true" }, .fs_actions = &actions };
+    _ = try libvoid.launch(cfg, std.heap.page_allocator);
 }
 ```
 
@@ -910,14 +910,14 @@ pub fn main() !void {
 
 ```zig
 const std = @import("std");
-const voidbox = @import("voidbox");
+const libvoid = @import("libvoid");
 
 pub fn main() !void {
-    const cfg: voidbox.JailConfig = .{
+    const cfg: libvoid.JailConfig = .{
         .name = "s21", .rootfs_path = "/", .cmd = &.{ "/bin/true" },
         .isolation = .{ .pid = true }, .runtime = .{ .as_pid_1 = true },
     };
-    _ = try voidbox.launch(cfg, std.heap.page_allocator);
+    _ = try libvoid.launch(cfg, std.heap.page_allocator);
 }
 ```
 
@@ -925,11 +925,11 @@ pub fn main() !void {
 
 ```zig
 const std = @import("std");
-const voidbox = @import("voidbox");
+const libvoid = @import("libvoid");
 
 pub fn main() !void {
-    const cfg: voidbox.JailConfig = .{ .name = "s22", .rootfs_path = "/", .cmd = &.{ "/bin/true" }, .process = .{ .new_session = true } };
-    _ = try voidbox.launch(cfg, std.heap.page_allocator);
+    const cfg: libvoid.JailConfig = .{ .name = "s22", .rootfs_path = "/", .cmd = &.{ "/bin/true" }, .process = .{ .new_session = true } };
+    _ = try libvoid.launch(cfg, std.heap.page_allocator);
 }
 ```
 
@@ -937,11 +937,11 @@ pub fn main() !void {
 
 ```zig
 const std = @import("std");
-const voidbox = @import("voidbox");
+const libvoid = @import("libvoid");
 
 pub fn main() !void {
-    const cfg: voidbox.JailConfig = .{ .name = "s23", .rootfs_path = "/", .cmd = &.{ "/bin/true" }, .process = .{ .die_with_parent = true } };
-    _ = try voidbox.launch(cfg, std.heap.page_allocator);
+    const cfg: libvoid.JailConfig = .{ .name = "s23", .rootfs_path = "/", .cmd = &.{ "/bin/true" }, .process = .{ .die_with_parent = true } };
+    _ = try libvoid.launch(cfg, std.heap.page_allocator);
 }
 ```
 
@@ -949,12 +949,12 @@ pub fn main() !void {
 
 ```zig
 const std = @import("std");
-const voidbox = @import("voidbox");
+const libvoid = @import("libvoid");
 
 pub fn main() !void {
     const caps = [_]u8{std.os.linux.CAP.NET_ADMIN};
-    const cfg: voidbox.JailConfig = .{ .name = "s24", .rootfs_path = "/", .cmd = &.{ "/bin/true" }, .security = .{ .cap_add = &caps } };
-    _ = try voidbox.launch(cfg, std.heap.page_allocator);
+    const cfg: libvoid.JailConfig = .{ .name = "s24", .rootfs_path = "/", .cmd = &.{ "/bin/true" }, .security = .{ .cap_add = &caps } };
+    _ = try libvoid.launch(cfg, std.heap.page_allocator);
 }
 ```
 
@@ -962,12 +962,12 @@ pub fn main() !void {
 
 ```zig
 const std = @import("std");
-const voidbox = @import("voidbox");
+const libvoid = @import("libvoid");
 
 pub fn main() !void {
     const caps = [_]u8{std.os.linux.CAP.NET_RAW};
-    const cfg: voidbox.JailConfig = .{ .name = "s25", .rootfs_path = "/", .cmd = &.{ "/bin/true" }, .security = .{ .cap_drop = &caps } };
-    _ = try voidbox.launch(cfg, std.heap.page_allocator);
+    const cfg: libvoid.JailConfig = .{ .name = "s25", .rootfs_path = "/", .cmd = &.{ "/bin/true" }, .security = .{ .cap_drop = &caps } };
+    _ = try libvoid.launch(cfg, std.heap.page_allocator);
 }
 ```
 
@@ -975,11 +975,11 @@ pub fn main() !void {
 
 ```zig
 const std = @import("std");
-const voidbox = @import("voidbox");
+const libvoid = @import("libvoid");
 
 pub fn main() !void {
-    const cfg: voidbox.JailConfig = .{ .name = "s26", .rootfs_path = "/", .cmd = &.{ "/bin/true" }, .runtime = .{ .fail_on_runtime_warnings = true } };
-    _ = try voidbox.launch(cfg, std.heap.page_allocator);
+    const cfg: libvoid.JailConfig = .{ .name = "s26", .rootfs_path = "/", .cmd = &.{ "/bin/true" }, .runtime = .{ .fail_on_runtime_warnings = true } };
+    _ = try libvoid.launch(cfg, std.heap.page_allocator);
 }
 ```
 
@@ -987,12 +987,12 @@ pub fn main() !void {
 
 ```zig
 const std = @import("std");
-const voidbox = @import("voidbox");
+const libvoid = @import("libvoid");
 
 pub fn main() !void {
-    const nfd: voidbox.NamespaceFds = .{ .net = 10, .mount = 11 };
-    const cfg: voidbox.JailConfig = .{ .name = "s27", .rootfs_path = "/", .cmd = &.{ "/bin/true" }, .namespace_fds = nfd };
-    _ = try voidbox.launch(cfg, std.heap.page_allocator);
+    const nfd: libvoid.NamespaceFds = .{ .net = 10, .mount = 11 };
+    const cfg: libvoid.JailConfig = .{ .name = "s27", .rootfs_path = "/", .cmd = &.{ "/bin/true" }, .namespace_fds = nfd };
+    _ = try libvoid.launch(cfg, std.heap.page_allocator);
 }
 ```
 
@@ -1000,11 +1000,11 @@ pub fn main() !void {
 
 ```zig
 const std = @import("std");
-const voidbox = @import("voidbox");
+const libvoid = @import("libvoid");
 
 pub fn main() !void {
-    const cfg: voidbox.JailConfig = .{ .name = "s28", .rootfs_path = "/", .cmd = &.{ "/bin/true" }, .status = .{ .lock_file_path = "/tmp/voidbox.lock", .info_fd = 1 } };
-    _ = try voidbox.launch(cfg, std.heap.page_allocator);
+    const cfg: libvoid.JailConfig = .{ .name = "s28", .rootfs_path = "/", .cmd = &.{ "/bin/true" }, .status = .{ .lock_file_path = "/tmp/libvoid.lock", .info_fd = 1 } };
+    _ = try libvoid.launch(cfg, std.heap.page_allocator);
 }
 ```
 
@@ -1012,11 +1012,11 @@ pub fn main() !void {
 
 ```zig
 const std = @import("std");
-const voidbox = @import("voidbox");
+const libvoid = @import("libvoid");
 
 pub fn main() !void {
-    const cfg: voidbox.JailConfig = .{ .name = "s29", .rootfs_path = "/", .cmd = &.{ "/bin/true" }, .status = .{ .json_status_fd = 1 } };
-    _ = try voidbox.launch(cfg, std.heap.page_allocator);
+    const cfg: libvoid.JailConfig = .{ .name = "s29", .rootfs_path = "/", .cmd = &.{ "/bin/true" }, .status = .{ .json_status_fd = 1 } };
+    _ = try libvoid.launch(cfg, std.heap.page_allocator);
 }
 ```
 
@@ -1024,11 +1024,11 @@ pub fn main() !void {
 
 ```zig
 const std = @import("std");
-const voidbox = @import("voidbox");
+const libvoid = @import("libvoid");
 
 pub fn main() !void {
-    const cfg: voidbox.JailConfig = .{ .name = "s30", .rootfs_path = "/", .cmd = &.{ "/bin/echo", "ok" }, .process = .{ .argv0 = "custom-echo" } };
-    _ = try voidbox.launch(cfg, std.heap.page_allocator);
+    const cfg: libvoid.JailConfig = .{ .name = "s30", .rootfs_path = "/", .cmd = &.{ "/bin/echo", "ok" }, .process = .{ .argv0 = "custom-echo" } };
+    _ = try libvoid.launch(cfg, std.heap.page_allocator);
 }
 ```
 
@@ -1036,11 +1036,11 @@ pub fn main() !void {
 
 ```zig
 const std = @import("std");
-const voidbox = @import("voidbox");
+const libvoid = @import("libvoid");
 
 pub fn main() !void {
-    const cfg: voidbox.JailConfig = .{ .name = "s31", .rootfs_path = "/", .cmd = &.{ "/bin/true" }, .security = .{ .disable_userns = true } };
-    _ = try voidbox.launch(cfg, std.heap.page_allocator);
+    const cfg: libvoid.JailConfig = .{ .name = "s31", .rootfs_path = "/", .cmd = &.{ "/bin/true" }, .security = .{ .disable_userns = true } };
+    _ = try libvoid.launch(cfg, std.heap.page_allocator);
 }
 ```
 
@@ -1048,11 +1048,11 @@ pub fn main() !void {
 
 ```zig
 const std = @import("std");
-const voidbox = @import("voidbox");
+const libvoid = @import("libvoid");
 
 pub fn main() !void {
-    const cfg: voidbox.JailConfig = .{ .name = "s32", .rootfs_path = "/", .cmd = &.{ "/bin/true" }, .security = .{ .assert_userns_disabled = true } };
-    _ = try voidbox.launch(cfg, std.heap.page_allocator);
+    const cfg: libvoid.JailConfig = .{ .name = "s32", .rootfs_path = "/", .cmd = &.{ "/bin/true" }, .security = .{ .assert_userns_disabled = true } };
+    _ = try libvoid.launch(cfg, std.heap.page_allocator);
 }
 ```
 
@@ -1060,12 +1060,12 @@ pub fn main() !void {
 
 ```zig
 const std = @import("std");
-const voidbox = @import("voidbox");
+const libvoid = @import("libvoid");
 
 pub fn main() !void {
-    const sec: voidbox.SecurityOptions = .{ .exec_label = "system_u:system_r:container_t:s0", .file_label = "system_u:object_r:container_file_t:s0" };
-    const cfg: voidbox.JailConfig = .{ .name = "s33", .rootfs_path = "/", .cmd = &.{ "/bin/true" }, .security = sec };
-    _ = try voidbox.launch(cfg, std.heap.page_allocator);
+    const sec: libvoid.SecurityOptions = .{ .exec_label = "system_u:system_r:container_t:s0", .file_label = "system_u:object_r:container_file_t:s0" };
+    const cfg: libvoid.JailConfig = .{ .name = "s33", .rootfs_path = "/", .cmd = &.{ "/bin/true" }, .security = sec };
+    _ = try libvoid.launch(cfg, std.heap.page_allocator);
 }
 ```
 
@@ -1073,12 +1073,12 @@ pub fn main() !void {
 
 ```zig
 const std = @import("std");
-const voidbox = @import("voidbox");
+const libvoid = @import("libvoid");
 
 pub fn main() !void {
-    const limits: voidbox.ResourceLimits = .{ .memory_max = "268435456", .cpu_max = "50000 100000", .pids_max = "256" };
-    const cfg: voidbox.JailConfig = .{ .name = "s34", .rootfs_path = "/", .cmd = &.{ "/bin/true" }, .resources = limits, .isolation = .{ .cgroup = true } };
-    _ = try voidbox.launch(cfg, std.heap.page_allocator);
+    const limits: libvoid.ResourceLimits = .{ .memory_max = "268435456", .cpu_max = "50000 100000", .pids_max = "256" };
+    const cfg: libvoid.JailConfig = .{ .name = "s34", .rootfs_path = "/", .cmd = &.{ "/bin/true" }, .resources = limits, .isolation = .{ .cgroup = true } };
+    _ = try libvoid.launch(cfg, std.heap.page_allocator);
 }
 ```
 
@@ -1086,10 +1086,10 @@ pub fn main() !void {
 
 ```zig
 const std = @import("std");
-const voidbox = @import("voidbox");
+const libvoid = @import("libvoid");
 
 pub fn main() !void {
-    const cfg: voidbox.JailConfig = .{
+    const cfg: libvoid.JailConfig = .{
         .name = "s35", .rootfs_path = "/",
         .cmd = &.{ "/bin/sh", "-c", "cat /etc/hostname >/dev/null 2>&1 && exit 1 || exit 0" },
         .isolation = .{ .user = false, .net = false, .mount = false, .pid = false, .uts = false, .ipc = false },
@@ -1102,7 +1102,7 @@ pub fn main() !void {
             .{ .path = "/proc", .access = .read },
         } } },
     };
-    const o = try voidbox.launch(cfg, std.heap.page_allocator);
+    const o = try libvoid.launch(cfg, std.heap.page_allocator);
     std.debug.assert(o.exit_code == 0); // /etc blocked
 }
 ```
@@ -1111,10 +1111,10 @@ pub fn main() !void {
 
 ```zig
 const std = @import("std");
-const voidbox = @import("voidbox");
+const libvoid = @import("libvoid");
 
 pub fn main() !void {
-    const cfg: voidbox.JailConfig = .{
+    const cfg: libvoid.JailConfig = .{
         .name = "s36", .rootfs_path = "/",
         .cmd = &.{ "/bin/sh", "-c", "cat /etc/hostname" },
         .security = .{ .landlock = .{ .enabled = true, .fs_rules = &.{
@@ -1125,7 +1125,7 @@ pub fn main() !void {
             .{ .path = "/proc", .access = .read },
         } } },
     };
-    _ = try voidbox.launch(cfg, std.heap.page_allocator);
+    _ = try libvoid.launch(cfg, std.heap.page_allocator);
 }
 ```
 
@@ -1133,13 +1133,13 @@ pub fn main() !void {
 
 ```zig
 const std = @import("std");
-const voidbox = @import("voidbox");
+const libvoid = @import("libvoid");
 
 pub fn main() !void {
-    var cfg: voidbox.JailConfig = .{ .name = "s37", .rootfs_path = "/", .cmd = &.{ "/bin/true" } };
-    var session = try voidbox.spawn(cfg, std.heap.page_allocator);
+    var cfg: libvoid.JailConfig = .{ .name = "s37", .rootfs_path = "/", .cmd = &.{ "/bin/true" } };
+    var session = try libvoid.spawn(cfg, std.heap.page_allocator);
     defer session.deinit();
-    _ = try voidbox.wait(&session);
+    _ = try libvoid.wait(&session);
 }
 ```
 

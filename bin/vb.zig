@@ -1,9 +1,9 @@
 const std = @import("std");
 const linux = std.os.linux;
-const voidbox = @import("voidbox");
+const libvoid = @import("libvoid");
 
 const Parsed = struct {
-    cfg: voidbox.JailConfig,
+    cfg: libvoid.JailConfig,
     cmd: []const []const u8,
     try_options: TryOptions,
     level_prefix: bool,
@@ -57,12 +57,12 @@ pub fn main() !void {
     var fallback_used = false;
 
     const outcome = launch: while (true) {
-        voidbox.validate(cfg) catch |err| {
+        libvoid.validate(cfg) catch |err| {
             try printWithPrefix(parsed.level_prefix, "validation failed: {s}\n", .{@errorName(err)});
             std.posix.exit(2);
         };
 
-        const launch_result = voidbox.launch(cfg, allocator);
+        const launch_result = libvoid.launch(cfg, allocator);
         if (launch_result) |ok| {
             break :launch ok;
         } else |err| {
@@ -92,7 +92,7 @@ fn parseBwrapArgs(allocator: std.mem.Allocator, raw: []const []const u8) !Parsed
 
     if (args.len == 0) return error.HelpRequested;
 
-    var cfg: voidbox.JailConfig = .{
+    var cfg: libvoid.JailConfig = .{
         .name = "sandbox",
         .rootfs_path = "/",
         .cmd = &.{"/bin/sh"},
@@ -112,10 +112,10 @@ fn parseBwrapArgs(allocator: std.mem.Allocator, raw: []const []const u8) !Parsed
     var overlay_key_index: usize = 0;
     var latest_overlay_key: ?[]const u8 = null;
 
-    var fs_actions = std.ArrayList(voidbox.FsAction).empty;
+    var fs_actions = std.ArrayList(libvoid.FsAction).empty;
     defer fs_actions.deinit(allocator);
 
-    var env_set = std.ArrayList(voidbox.EnvironmentEntry).empty;
+    var env_set = std.ArrayList(libvoid.EnvironmentEntry).empty;
     defer env_set.deinit(allocator);
 
     var env_unset = std.ArrayList([]const u8).empty;
@@ -127,7 +127,7 @@ fn parseBwrapArgs(allocator: std.mem.Allocator, raw: []const []const u8) !Parsed
     var cap_drop = std.ArrayList(u8).empty;
     defer cap_drop.deinit(allocator);
 
-    var landlock_rules = std.ArrayList(voidbox.LandlockFsRule).empty;
+    var landlock_rules = std.ArrayList(libvoid.LandlockFsRule).empty;
     defer landlock_rules.deinit(allocator);
 
     var seccomp_fds = std.ArrayList(i32).empty;
@@ -599,7 +599,7 @@ fn hasLevelPrefix(args: []const []const u8) bool {
     return false;
 }
 
-fn applyTryFallbackOnSpawnFailure(cfg: *voidbox.JailConfig, try_options: TryOptions) bool {
+fn applyTryFallbackOnSpawnFailure(cfg: *libvoid.JailConfig, try_options: TryOptions) bool {
     var changed = false;
     if (try_options.unshare_user_try and cfg.isolation.user) {
         cfg.isolation.user = false;
@@ -615,7 +615,7 @@ fn applyTryFallbackOnSpawnFailure(cfg: *voidbox.JailConfig, try_options: TryOpti
     return changed;
 }
 
-fn applyTryIsolationSemantics(cfg: *voidbox.JailConfig, try_options: TryOptions) void {
+fn applyTryIsolationSemantics(cfg: *libvoid.JailConfig, try_options: TryOptions) void {
     if (try_options.unshare_user_try and !probeUserIsolationPath()) {
         cfg.isolation.user = false;
         if (cfg.fs_actions.len == 0 and cfg.namespace_fds.mount == null) {
@@ -732,7 +732,7 @@ fn parseCapability(raw: []const u8) !u8 {
     };
 }
 
-fn maybeApplyPending(allocator: std.mem.Allocator, actions: *std.ArrayList(voidbox.FsAction), pending_mode: *?u32, pending_size: *?usize) !void {
+fn maybeApplyPending(allocator: std.mem.Allocator, actions: *std.ArrayList(libvoid.FsAction), pending_mode: *?u32, pending_size: *?usize) !void {
     if (pending_mode.*) |mode| {
         try actions.append(allocator, .{ .perms = mode });
     }
@@ -840,7 +840,7 @@ fn parseFd(raw: []const u8) !i32 {
 fn printCliError(err: anyerror, level_prefix: bool) !void {
     switch (err) {
         error.HelpRequested => {},
-        error.UnsupportedOption => try printWithPrefix(level_prefix, "unsupported option in current voidbox backend\n", .{}),
+        error.UnsupportedOption => try printWithPrefix(level_prefix, "unsupported option in current libvoid backend\n", .{}),
         else => try printWithPrefix(level_prefix, "argument error: {s}\n", .{@errorName(err)}),
     }
 }
@@ -862,7 +862,7 @@ fn printUsage() !void {
     const option = if (color) "\x1b[93m" else "";
     const dim = if (color) "\x1b[37m" else "";
 
-    try out.print("{s}voidbox cli{s}\n", .{ title, reset });
+    try out.print("{s}libvoid cli{s}\n", .{ title, reset });
     try out.print("{s}usage{s}  vb [OPTION...] [--] COMMAND [ARG...]\n\n", .{ section, reset });
 
     try out.print("{s}General{s}\n", .{ section, reset });
@@ -978,7 +978,7 @@ test "parseBwrapArgs parses namespace fd options" {
 }
 
 test "applyTryFallbackOnSpawnFailure drops cgroup unshare when try is enabled" {
-    var cfg: voidbox.JailConfig = .{
+    var cfg: libvoid.JailConfig = .{
         .name = "t",
         .rootfs_path = "/",
         .cmd = &.{"/bin/true"},
@@ -990,7 +990,7 @@ test "applyTryFallbackOnSpawnFailure drops cgroup unshare when try is enabled" {
 }
 
 test "applyTryFallbackOnSpawnFailure drops user and implicit mount for user-try" {
-    var cfg: voidbox.JailConfig = .{
+    var cfg: libvoid.JailConfig = .{
         .name = "t",
         .rootfs_path = "/",
         .cmd = &.{"/bin/true"},

@@ -1,18 +1,18 @@
-//! voidbox is a library-first Linux namespace jail toolkit.
+//! libvoid is a library-first Linux namespace jail toolkit.
 //!
 //! Embedder quick start:
 //!
 //! ```zig
 //! const std = @import("std");
-//! const voidbox = @import("voidbox");
+//! const libvoid = @import("libvoid");
 //!
 //! pub fn main() !void {
 //!     const allocator = std.heap.page_allocator;
-//!     var cfg = voidbox.default_shell_config("/");
+//!     var cfg = libvoid.default_shell_config("/");
 //!     cfg.name = "dev-shell";
 //!     cfg.shell_args = &.{ "-c", "echo hello from jail" };
 //!     cfg.isolation = .{ .user = true, .net = false, .mount = false, .pid = false, .uts = false, .ipc = false };
-//!     _ = try voidbox.launch_shell(cfg, allocator);
+//!     _ = try libvoid.launch_shell(cfg, allocator);
 //! }
 //! ```
 //!
@@ -20,23 +20,23 @@
 //!
 //! ```zig
 //! const std = @import("std");
-//! const voidbox = @import("voidbox");
+//! const libvoid = @import("libvoid");
 //!
-//! fn onEvent(ctx: ?*anyopaque, event: voidbox.StatusEvent) !void {
+//! fn onEvent(ctx: ?*anyopaque, event: libvoid.StatusEvent) !void {
 //!     _ = ctx;
 //!     _ = event;
 //! }
 //!
 //! pub fn main() !void {
 //!     const allocator = std.heap.page_allocator;
-//!     const cfg: voidbox.JailConfig = .{
+//!     const cfg: libvoid.JailConfig = .{
 //!         .name = "run-once",
 //!         .rootfs_path = "/",
 //!         .cmd = &.{ "/bin/sh", "-c", "exit 0" },
 //!         .status = .{ .on_event = onEvent },
 //!         .isolation = .{ .user = true, .net = false, .mount = false, .pid = false, .uts = false, .ipc = false },
 //!     };
-//!     _ = try voidbox.launch(cfg, allocator);
+//!     _ = try libvoid.launch(cfg, allocator);
 //! }
 //! ```
 
@@ -435,7 +435,7 @@ pub fn wait(session: *Session) WaitError!RunOutcome {
 /// Apply namespace and filesystem isolation in an already-forked child process
 ///
 /// This function is intended for advanced use cases where the caller has already
-/// forked (e.g., for PTY setup) and needs voidbox to apply isolation before exec.
+/// forked (e.g., for PTY setup) and needs libvoid to apply isolation before exec.
 ///
 /// Prerequisites:
 /// - Must be called in child process after fork
@@ -455,7 +455,7 @@ pub fn wait(session: *Session) WaitError!RunOutcome {
 ///   if (pid == 0) {
 ///       // Child: setup PTY, then apply isolation
 ///       try setupPtyInChild();
-///       try voidbox.applyIsolationInChild(config, allocator);
+///       try libvoid.applyIsolationInChild(config, allocator);
 ///       try std.posix.execveZ(...);
 ///   }
 ///   // Parent continues...
@@ -1874,7 +1874,7 @@ test "integration tmp-overlay base path is hidden from child" {
         .cmd = &.{
             "/bin/sh",
             "-c",
-            "[ -e /tmp/ov-target ] && [ ! -e /tmp/.voidbox-tmp-overlay ]",
+            "[ -e /tmp/ov-target ] && [ ! -e /tmp/.libvoid-tmp-overlay ]",
         },
         .isolation = .{
             .user = false,
@@ -2302,7 +2302,7 @@ test "integration landlock blocks write to read-only path" {
 }
 
 fn integrationTestsEnabled() bool {
-    const value = std.process.getEnvVarOwned(std.heap.page_allocator, "VOIDBOX_RUN_INTEGRATION") catch return false;
+    const value = std.process.getEnvVarOwned(std.heap.page_allocator, "LIBVOID_RUN_INTEGRATION") catch return false;
     defer std.heap.page_allocator.free(value);
 
     return std.mem.eql(u8, value, "1") or std.ascii.eqlIgnoreCase(value, "true");

@@ -2,9 +2,9 @@ const std = @import("std");
 const linux = std.os.linux;
 
 pub const CGROUP_PATH = "/sys/fs/cgroup/";
-pub const INFO_PATH = "/var/run/voidbox/containers/";
+pub const INFO_PATH = "/var/run/libvoid/containers/";
 pub const NETNS_PATH = INFO_PATH ++ "netns/";
-pub const BRIDGE_NAME = "voidbox0";
+pub const BRIDGE_NAME = "libvoid0";
 
 pub fn checkErr(val: usize, err: anyerror) !void {
     const signed: isize = @bitCast(val);

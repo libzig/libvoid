@@ -1,5 +1,5 @@
 .{
-    .name = .voidbox,
+    .name = .libvoid,
     .version = "0.0.10",
     .paths = .{
         "build.zig",
@@ -8,5 +8,5 @@
         "examples",
         "lib",
     },
-    .fingerprint = 0x3cf863a045e37b7c,
+    .fingerprint = 0xee4c85a2453c6c81,
 }

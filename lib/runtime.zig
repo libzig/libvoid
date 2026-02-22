@@ -29,11 +29,11 @@ pub const InitResult = struct {
 pub fn init() InitResult {
     var result = InitResult{};
 
-    _ = ensure_dir("/var/run/voidbox", .RuntimeDirUnavailable, &result);
-    _ = ensure_dir("/var/run/voidbox/containers", .ContainersDirUnavailable, &result);
-    _ = ensure_dir("/var/run/voidbox/containers/netns", .NetnsDirUnavailable, &result);
+    _ = ensure_dir("/var/run/libvoid", .RuntimeDirUnavailable, &result);
+    _ = ensure_dir("/var/run/libvoid/containers", .ContainersDirUnavailable, &result);
+    _ = ensure_dir("/var/run/libvoid/containers/netns", .NetnsDirUnavailable, &result);
 
-    const path = utils.CGROUP_PATH ++ "voidbox/";
+    const path = utils.CGROUP_PATH ++ "libvoid/";
     const cgroup_ready = ensure_dir(path, .CgroupDirUnavailable, &result);
     if (!cgroup_ready) return result;
 

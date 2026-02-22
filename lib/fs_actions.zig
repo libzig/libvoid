@@ -10,7 +10,7 @@ const BIND_HARDEN_FLAGS: u32 = linux.MS.BIND | linux.MS.REMOUNT | linux.MS.REC |
 const BIND_HARDEN_DEV_FLAGS: u32 = linux.MS.BIND | linux.MS.REMOUNT | linux.MS.REC | linux.MS.NOSUID;
 const PROC_FLAGS: u32 = linux.MS.NOSUID | linux.MS.NODEV | linux.MS.NOEXEC;
 const TMPFS_FLAGS: u32 = linux.MS.NOSUID | linux.MS.NODEV;
-const TMP_OVERLAY_BASE: []const u8 = "/tmp/.voidbox-tmp-overlay";
+const TMP_OVERLAY_BASE: []const u8 = "/tmp/.libvoid-tmp-overlay";
 
 const MountedTarget = struct {
     path: []const u8,
@@ -640,10 +640,10 @@ fn cleanupTempDirs(paths: []const []const u8) void {
 }
 
 pub fn cleanupInstanceArtifacts(rootfs: []const u8, instance_id: []const u8) void {
-    const data_path = rootedPath(std.heap.page_allocator, rootfs, "/tmp/.voidbox-data", instance_id) catch return;
+    const data_path = rootedPath(std.heap.page_allocator, rootfs, "/tmp/.libvoid-data", instance_id) catch return;
     cleanupTree(data_path);
 
-    const overlay_path = rootedPath(std.heap.page_allocator, rootfs, "/tmp/.voidbox-overlay", instance_id) catch return;
+    const overlay_path = rootedPath(std.heap.page_allocator, rootfs, "/tmp/.libvoid-overlay", instance_id) catch return;
     cleanupTree(overlay_path);
 
     const tmp_overlay_path = rootedPath(std.heap.page_allocator, rootfs, TMP_OVERLAY_BASE, instance_id) catch return;
@@ -669,7 +669,7 @@ fn rootedPath(allocator: std.mem.Allocator, rootfs: []const u8, base: []const u8
 }
 
 fn writeDataSource(instance_id: []const u8, data: []const u8, index: usize) ![]const u8 {
-    const path = try std.fmt.allocPrint(std.heap.page_allocator, "/tmp/.voidbox-data/{s}/{d}", .{ instance_id, index });
+    const path = try std.fmt.allocPrint(std.heap.page_allocator, "/tmp/.libvoid-data/{s}/{d}", .{ instance_id, index });
     errdefer std.heap.page_allocator.free(path);
     const parent = std.fs.path.dirname(path);
     if (parent) |p| {
@@ -684,7 +684,7 @@ fn writeDataSource(instance_id: []const u8, data: []const u8, index: usize) ![]c
 }
 
 fn writeDataSourceFromFd(instance_id: []const u8, fd: i32, index: usize) ![]const u8 {
-    const path = try std.fmt.allocPrint(std.heap.page_allocator, "/tmp/.voidbox-data/{s}/{d}", .{ instance_id, index });
+    const path = try std.fmt.allocPrint(std.heap.page_allocator, "/tmp/.libvoid-data/{s}/{d}", .{ instance_id, index });
     errdefer std.heap.page_allocator.free(path);
     const parent = std.fs.path.dirname(path);
     if (parent) |p| {
@@ -863,9 +863,9 @@ test "sourceExists handles existing and missing paths" {
 }
 
 test "ensurePath creates absolute directories" {
-    const path = "/tmp/voidbox-ensure-path-abs-test/a/b";
-    std.fs.deleteTreeAbsolute("/tmp/voidbox-ensure-path-abs-test") catch {};
-    defer std.fs.deleteTreeAbsolute("/tmp/voidbox-ensure-path-abs-test") catch {};
+    const path = "/tmp/libvoid-ensure-path-abs-test/a/b";
+    std.fs.deleteTreeAbsolute("/tmp/libvoid-ensure-path-abs-test") catch {};
+    defer std.fs.deleteTreeAbsolute("/tmp/libvoid-ensure-path-abs-test") catch {};
 
     try ensurePath(path);
     try std.testing.expect(sourceExists(path));
@@ -889,7 +889,7 @@ test "takeMode is one-shot" {
 
 test "bind_try skips missing source without failing" {
     const actions = [_]FsAction{
-        .{ .bind_try = .{ .src = "/definitely/not/a/real/path", .dest = "/tmp/voidbox-bind-try-skip" } },
+        .{ .bind_try = .{ .src = "/definitely/not/a/real/path", .dest = "/tmp/libvoid-bind-try-skip" } },
     };
 
     try execute("itest", &actions);
@@ -897,7 +897,7 @@ test "bind_try skips missing source without failing" {
 
 test "dev_bind_try skips missing source without failing" {
     const actions = [_]FsAction{
-        .{ .dev_bind_try = .{ .src = "/definitely/not/a/real/path", .dest = "/tmp/voidbox-dev-bind-try-skip" } },
+        .{ .dev_bind_try = .{ .src = "/definitely/not/a/real/path", .dest = "/tmp/libvoid-dev-bind-try-skip" } },
     };
 
     try execute("itest", &actions);
@@ -905,28 +905,28 @@ test "dev_bind_try skips missing source without failing" {
 
 test "ro_bind_try skips missing source without failing" {
     const actions = [_]FsAction{
-        .{ .ro_bind_try = .{ .src = "/definitely/not/a/real/path", .dest = "/tmp/voidbox-ro-bind-try-skip" } },
+        .{ .ro_bind_try = .{ .src = "/definitely/not/a/real/path", .dest = "/tmp/libvoid-ro-bind-try-skip" } },
     };
 
     try execute("itest", &actions);
 }
 
 test "rootedPath maps chroot paths to host paths" {
-    const p1 = try rootedPath(std.testing.allocator, "/", "/tmp/.voidbox-data", "abc");
+    const p1 = try rootedPath(std.testing.allocator, "/", "/tmp/.libvoid-data", "abc");
     defer std.testing.allocator.free(p1);
-    try std.testing.expectEqualStrings("/tmp/.voidbox-data/abc", p1);
+    try std.testing.expectEqualStrings("/tmp/.libvoid-data/abc", p1);
 
-    const p2 = try rootedPath(std.testing.allocator, "/srv/rootfs", "/tmp/.voidbox-overlay", "xyz");
+    const p2 = try rootedPath(std.testing.allocator, "/srv/rootfs", "/tmp/.libvoid-overlay", "xyz");
     defer std.testing.allocator.free(p2);
-    try std.testing.expectEqualStrings("/srv/rootfs/tmp/.voidbox-overlay/xyz", p2);
+    try std.testing.expectEqualStrings("/srv/rootfs/tmp/.libvoid-overlay/xyz", p2);
 }
 
 test "cleanupInstanceArtifacts removes data and overlay trees" {
     const instance_id = "itest-cleanup-artifacts";
 
-    const data_dir = try std.fmt.allocPrint(std.testing.allocator, "/tmp/.voidbox-data/{s}", .{instance_id});
+    const data_dir = try std.fmt.allocPrint(std.testing.allocator, "/tmp/.libvoid-data/{s}", .{instance_id});
     defer std.testing.allocator.free(data_dir);
-    const overlay_dir = try std.fmt.allocPrint(std.testing.allocator, "/tmp/.voidbox-overlay/{s}", .{instance_id});
+    const overlay_dir = try std.fmt.allocPrint(std.testing.allocator, "/tmp/.libvoid-overlay/{s}", .{instance_id});
     defer std.testing.allocator.free(overlay_dir);
 
     std.fs.deleteTreeAbsolute(data_dir) catch {};
@@ -941,8 +941,8 @@ test "cleanupInstanceArtifacts removes data and overlay trees" {
 }
 
 test "cleanup helpers remove temporary files and directories" {
-    const file_path = "/tmp/voidbox-cleanup-helper-file";
-    const dir_path = "/tmp/voidbox-cleanup-helper-dir";
+    const file_path = "/tmp/libvoid-cleanup-helper-file";
+    const dir_path = "/tmp/libvoid-cleanup-helper-dir";
 
     std.fs.deleteFileAbsolute(file_path) catch {};
     std.fs.deleteTreeAbsolute(dir_path) catch {};
@@ -962,12 +962,12 @@ test "cleanup helpers remove temporary files and directories" {
 
 test "execute cleans bind-data temp file on mount failure" {
     const instance_id = "itest-bind-data-rollback";
-    const temp_source = "/tmp/.voidbox-data/itest-bind-data-rollback/0";
+    const temp_source = "/tmp/.libvoid-data/itest-bind-data-rollback/0";
 
     std.fs.deleteFileAbsolute(temp_source) catch {};
 
     const actions = [_]FsAction{
-        .{ .bind_data = .{ .data = "hello", .dest = "/tmp/voidbox-bind-data-fail" } },
+        .{ .bind_data = .{ .data = "hello", .dest = "/tmp/libvoid-bind-data-fail" } },
     };
 
     try std.testing.expectError(error.BindMount, execute(instance_id, &actions));
@@ -977,13 +977,13 @@ test "execute cleans bind-data temp file on mount failure" {
 
 test "execute cleans tmp-overlay temp dirs on overlay mount failure" {
     const instance_id = "itest-tmp-overlay-rollback";
-    const overlay_base = "/tmp/.voidbox-tmp-overlay/itest-tmp-overlay-rollback/base-0";
+    const overlay_base = "/tmp/.libvoid-tmp-overlay/itest-tmp-overlay-rollback/base-0";
 
     std.fs.deleteTreeAbsolute(overlay_base) catch {};
 
     const actions = [_]FsAction{
         .{ .overlay_src = .{ .key = "base", .path = "/definitely/not/a/real/lowerdir" } },
-        .{ .tmp_overlay = .{ .source_key = "base", .dest = "/tmp/voidbox-overlay-fail" } },
+        .{ .tmp_overlay = .{ .source_key = "base", .dest = "/tmp/libvoid-overlay-fail" } },
     };
 
     const result = execute(instance_id, &actions);
@@ -997,7 +997,7 @@ test "execute cleans tmp-overlay temp dirs on overlay mount failure" {
 
 test "writeDataSourceFromFd cleans temporary file on read failure" {
     const instance_id = "itest-write-fd-cleanup";
-    const leaked_path = try std.fmt.allocPrint(std.testing.allocator, "/tmp/.voidbox-data/{s}/{d}", .{ instance_id, 0 });
+    const leaked_path = try std.fmt.allocPrint(std.testing.allocator, "/tmp/.libvoid-data/{s}/{d}", .{ instance_id, 0 });
     defer std.testing.allocator.free(leaked_path);
 
     std.fs.deleteFileAbsolute(leaked_path) catch {};

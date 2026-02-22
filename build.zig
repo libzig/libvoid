@@ -19,30 +19,30 @@ pub fn build(b: *std.Build) !void {
     // set a preferred release mode, allowing the user to decide how to optimize.
     const optimize = b.standardOptimizeOption(.{});
 
-    const voidbox_module = b.createModule(.{
-        .root_source_file = b.path("lib/voidbox.zig"),
+    const libvoid_module = b.createModule(.{
+        .root_source_file = b.path("lib/libvoid.zig"),
         .target = target,
         .optimize = optimize,
         .link_libc = true,
     });
 
-    _ = b.addModule("voidbox", .{
-        .root_source_file = b.path("lib/voidbox.zig"),
+    _ = b.addModule("libvoid", .{
+        .root_source_file = b.path("lib/libvoid.zig"),
         .target = target,
         .optimize = optimize,
         .link_libc = true,
     });
 
     const lib = b.addLibrary(.{
-        .name = "voidbox",
-        .root_module = voidbox_module,
+        .name = "void",
+        .root_module = libvoid_module,
         .linkage = .static,
     });
 
     b.installArtifact(lib);
 
     const exe_unit_tests = b.addTest(.{
-        .root_module = voidbox_module,
+        .root_module = libvoid_module,
     });
 
     const run_exe_unit_tests = b.addRunArtifact(exe_unit_tests);
@@ -59,7 +59,7 @@ pub fn build(b: *std.Build) !void {
         .optimize = optimize,
         .link_libc = true,
     });
-    ex_shell_module.addImport("voidbox", voidbox_module);
+    ex_shell_module.addImport("libvoid", libvoid_module);
 
     const ex_shell = b.addExecutable(.{
         .name = "example_embedder_launch_shell",
@@ -72,7 +72,7 @@ pub fn build(b: *std.Build) !void {
         .optimize = optimize,
         .link_libc = true,
     });
-    ex_events_module.addImport("voidbox", voidbox_module);
+    ex_events_module.addImport("libvoid", libvoid_module);
 
     const ex_events = b.addExecutable(.{
         .name = "example_embedder_events",
@@ -85,7 +85,7 @@ pub fn build(b: *std.Build) !void {
         .optimize = optimize,
         .link_libc = true,
     });
-    ex_pty_module.addImport("voidbox", voidbox_module);
+    ex_pty_module.addImport("libvoid", libvoid_module);
 
     const ex_pty = b.addExecutable(.{
         .name = "example_embedder_pty_isolation",
@@ -98,7 +98,7 @@ pub fn build(b: *std.Build) !void {
         .optimize = optimize,
         .link_libc = true,
     });
-    ex_showcase_module.addImport("voidbox", voidbox_module);
+    ex_showcase_module.addImport("libvoid", libvoid_module);
 
     const ex_showcase = b.addExecutable(.{
         .name = "example_embedder_isolation_showcase",
@@ -111,7 +111,7 @@ pub fn build(b: *std.Build) !void {
         .optimize = optimize,
         .link_libc = true,
     });
-    vb_module.addImport("voidbox", voidbox_module);
+    vb_module.addImport("libvoid", libvoid_module);
 
     const vb_unit_tests = b.addTest(.{
         .root_module = vb_module,
@@ -136,7 +136,7 @@ pub fn build(b: *std.Build) !void {
         .optimize = optimize,
         .link_libc = true,
     });
-    ex_landlock_module.addImport("voidbox", voidbox_module);
+    ex_landlock_module.addImport("libvoid", libvoid_module);
 
     const ex_landlock = b.addExecutable(.{
         .name = "example_embedder_landlock",
