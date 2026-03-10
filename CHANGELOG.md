@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.0.12] - 2026-03-10
+
+### <!-- 0 -->⛰️  Features
+
+- Add devbox configuration for development environment
+- Add Landlock CLI flags, try_ support, example, and integration tests
+- Integrate Landlock into spawn pipeline and doctor report
+- Implement Landlock LSM syscall wrappers and access mode mapping
+- Add Landlock config types, validation, and public exports
+
+### <!-- 2 -->🚜 Refactor
+
+- Rename `voidbox` to `libvoid`
+
+### <!-- 3 -->📚 Documentation
+
+- Update Landlock LSM and hardening status
+
 ## [0.0.11] - 2026-02-22
 
 ### <!-- 2 -->🚜 Refactor
