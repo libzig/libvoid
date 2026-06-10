@@ -360,16 +360,28 @@ fn installPid1SignalForwarding(child_pid: linux.pid_t) !void {
     pid1_forward_target = @intCast(child_pid);
     errdefer resetPid1SignalForwarding();
 
+    // std.posix.sigaction instead of the translate-c'd signal()/SIG_ERR pair:
+    // the C SIG_ERR macro casts -1 to a function pointer, which Zig rejects at
+    // comptime on targets where function pointers need alignment (aarch64).
+    // SA.RESTART matches the BSD semantics glibc's signal() installs.
+    const act = std.posix.Sigaction{
+        .handler = .{ .handler = pid1ForwardSignalHandler },
+        .mask = std.posix.sigemptyset(),
+        .flags = std.posix.SA.RESTART,
+    };
     for (FORWARDED_SIGNALS) |sig| {
-        if (c.signal(sig, pid1ForwardSignalHandler) == c.SIG_ERR) {
-            return error.SignalInstallFailed;
-        }
+        std.posix.sigaction(@intCast(sig), &act, null);
     }
 }
 
 fn resetPid1SignalForwarding() void {
+    const act = std.posix.Sigaction{
+        .handler = .{ .handler = std.posix.SIG.DFL },
+        .mask = std.posix.sigemptyset(),
+        .flags = 0,
+    };
     for (FORWARDED_SIGNALS) |sig| {
-        _ = c.signal(sig, c.SIG_DFL);
+        std.posix.sigaction(@intCast(sig), &act, null);
     }
     pid1_forward_target = 0;
 }
